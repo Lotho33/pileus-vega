@@ -18,12 +18,8 @@ export interface PageState {
 }
 
 /** The row still ends in a trailing slot: loading, "Riprova", or more to ask for. */
-export const showsMoreSlot = (s: PageState, cap?: number) =>
-  s.hasMore && (cap === undefined || s.count < cap);
+export const showsMoreSlot = (s: PageState, cap?: number) => s.hasMore && (cap === undefined || s.count < cap);
 
 /** Focus reached card `index`: ask for the next page now? */
 export const shouldLoadMore = (s: PageState, index: number, cap?: number) =>
-  showsMoreSlot(s, cap) &&
-  !s.loading &&
-  !s.failed &&
-  index >= s.count - LOAD_AHEAD_ITEMS;
+  showsMoreSlot(s, cap) && !s.loading && !s.failed && index >= s.count - LOAD_AHEAD_ITEMS;

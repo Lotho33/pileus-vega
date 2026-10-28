@@ -79,11 +79,18 @@ export const PosterCard = memo(
   if (!p.captionFs) {
     return poster;
   }
+  // Always two lines tall, clipped: a longer title (numberOfLines isn't
+  // always honoured) or a one-line one must not change the card's height,
+  // or the row's vertical centering shifts that card against its neighbours.
   return (
     <View style={{width: p.width}}>
       {poster}
       <Text
-        style={[styles.caption2, {fontSize: p.captionFs, lineHeight: p.captionFs * 1.3}, focused && styles.caption2On]}
+        style={[
+          styles.caption2,
+          {fontSize: p.captionFs, lineHeight: p.captionFs * 1.3, height: p.captionFs * 1.3 * 2},
+          focused && styles.caption2On,
+        ]}
         numberOfLines={2}>
         {p.card.title}
       </Text>
@@ -170,7 +177,7 @@ const styles = scaledStyles({
   focused: {borderColor: colors.primary, transform: [{scale: 1.07}]},
   clip: {flex: 1, borderRadius: 6, overflow: 'hidden', backgroundColor: colors.surface2},
   landscapeClip: {borderRadius: 8},
-  caption2: {color: colors.textMid, marginTop: 8, fontWeight: '500', textAlign: 'center'},
+  caption2: {color: colors.textMid, marginTop: 8, fontWeight: '500', textAlign: 'center', overflow: 'hidden'},
   caption2On: {color: colors.textHigh},
   placeholder: {alignItems: 'center', justifyContent: 'center', padding: 12},
   placeholderText: {color: colors.textLow, fontSize: 20, textAlign: 'center'},

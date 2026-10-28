@@ -16,12 +16,7 @@ const TMDB_RE = /^(https?:\/\/image\.tmdb\.org\/t\/p\/)(w\d+|original)(\/.+)$/;
 const POSTER_LADDER = [154, 185, 342, 500, 780];
 const BACKDROP_LADDER = [300, 780, 1280];
 
-function rewriteTmdb(
-  url: string,
-  ladder: number[],
-  targetPx: number,
-  allowOriginal = false,
-): string {
+function rewriteTmdb(url: string, ladder: number[], targetPx: number, allowOriginal = false): string {
   const m = TMDB_RE.exec(url);
   if (!m) {
     return url;
@@ -36,7 +31,14 @@ export function posterSrc(upstream: string, widthDp: number): string {
   return upstream ? rewriteTmdb(upstream, POSTER_LADDER, toPx(widthDp)) : upstream;
 }
 
+// Full-screen backdrops stop at TMDB's w1280, as pileus-player does on TV
+// (backdropCacheWidth): under the dark gradients, from a sofa, 1280 px on a
+// 1080p panel doesn't show — while asking for 1920 px fell through to the
+// /original file, often a 4K image of several MB to download and decode on
+// every hero change.
+const BACKDROP_MAX_PX = 1280;
+
 /** `widthDp`: the on-screen width in layout units. */
 export function backdropSrc(upstream: string, widthDp: number): string {
-  return upstream ? rewriteTmdb(upstream, BACKDROP_LADDER, toPx(widthDp), true) : upstream;
+  return upstream ? rewriteTmdb(upstream, BACKDROP_LADDER, Math.min(toPx(widthDp), BACKDROP_MAX_PX)) : upstream;
 }

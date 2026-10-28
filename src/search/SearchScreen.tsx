@@ -4,27 +4,14 @@
 // a trailing «Carica altri» card, never on their own), and the filter drawer.
 // Opened from quick search's filters button with the query typed so far.
 
-import React, {
-  forwardRef,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import React, {forwardRef, useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View} from 'react-native';
 import {useKeplerBackHandler} from '@amazon-devices/react-native-kepler';
 import {FocusButton} from '../components/FocusButton';
 import {Icon, IconName} from '../components/Icon';
 import {OnScreenKeyboard} from '../components/OnScreenKeyboard';
 import {mycelium} from '../core/api';
+import * as perf from '../core/perf';
 import {recentSearches} from '../core/recentSearches';
 import {focusSoon, useFocusGate} from '../core/focus';
 import type {PluginInfo, SearchFilter} from '../gen/media';
@@ -62,10 +49,7 @@ const SquareButton = forwardRef<
     onFocus: () => void;
     onPress: () => void;
   }
->(function SquareButton(
-  {icon, size, label, badge, busy, dim, onFocus, onPress},
-  ref,
-) {
+>(function SquareButton({icon, size, label, badge, busy, dim, onFocus, onPress}, ref) {
   const [focused, setFocused] = useState(false);
   return (
     <Pressable
@@ -77,20 +61,11 @@ const SquareButton = forwardRef<
       }}
       onBlur={() => setFocused(false)}
       onPress={onPress}
-      style={[
-        styles.square,
-        {width: size, height: size},
-        focused && styles.squareFocused,
-        dim && styles.dim,
-      ]}>
+      style={[styles.square, {width: size, height: size}, focused && styles.squareFocused, dim && styles.dim]}>
       {busy ? (
         <ActivityIndicator color={colors.textMid} />
       ) : (
-        <Icon
-          name={icon}
-          size={size * 0.46}
-          color={focused ? colors.textHigh : 'rgba(242,242,240,0.7)'}
-        />
+        <Icon name={icon} size={size * 0.46} color={focused ? colors.textHigh : 'rgba(242,242,240,0.7)'} />
       )}
       {badge ? (
         <View style={styles.badge}>
@@ -101,15 +76,7 @@ const SquareButton = forwardRef<
   );
 });
 
-function ActiveChip({
-  label,
-  onFocus,
-  onRemove,
-}: {
-  label: string;
-  onFocus: () => void;
-  onRemove: () => void;
-}) {
+function ActiveChip({label, onFocus, onRemove}: {label: string; onFocus: () => void; onRemove: () => void}) {
   const [focused, setFocused] = useState(false);
   return (
     <Pressable
@@ -130,10 +97,7 @@ function ActiveChip({
 function ItemInfo({card, H, hPad}: {card: CardModel; H: number; hPad: number}) {
   const h = card.hero;
   const s = H / 1080;
-  const meta = [
-    h.year > 0 ? String(h.year) : '',
-    h.rating > 0 ? `★ ${h.rating.toFixed(1)}` : '',
-  ]
+  const meta = [h.year > 0 ? String(h.year) : '', h.rating > 0 ? `★ ${h.rating.toFixed(1)}` : '']
     .filter(Boolean)
     .join('  ·  ');
   return (
@@ -141,12 +105,10 @@ function ItemInfo({card, H, hPad}: {card: CardModel; H: number; hPad: number}) {
       <Text style={[styles.infoTitle, {fontSize: 34 * s}]} numberOfLines={1}>
         {h.title}
       </Text>
-      {meta ? (
-        <Text style={[styles.infoMeta, {fontSize: 20 * s}]}>{meta}</Text>
-      ) : null}
+      {meta ? <Text style={[styles.infoMeta, {fontSize: 20 * s}]}>{meta}</Text> : null}
       {h.genres.length ? (
         <View style={styles.genres}>
-          {h.genres.slice(0, 4).map((g) => (
+          {h.genres.slice(0, 4).map(g => (
             <View key={g} style={styles.genre}>
               <Text style={[styles.genreText, {fontSize: 17 * s}]}>{g}</Text>
             </View>
@@ -154,12 +116,7 @@ function ItemInfo({card, H, hPad}: {card: CardModel; H: number; hPad: number}) {
         </View>
       ) : null}
       {h.plot ? (
-        <Text
-          style={[
-            styles.infoPlot,
-            {fontSize: 17 * s, lineHeight: 17 * s * 1.5},
-          ]}
-          numberOfLines={3}>
+        <Text style={[styles.infoPlot, {fontSize: 17 * s, lineHeight: 17 * s * 1.5}]} numberOfLines={3}>
           {h.plot}
         </Text>
       ) : null}
@@ -181,6 +138,7 @@ export function SearchScreen({
   onClose: () => void;
   onOpenItem: (card: CardModel) => void;
 }) {
+  useEffect(() => perf.enterScreen('search'), []);
   const {width: W, height: H} = useWindowDimensions();
   const L = useMemo(() => computeLayout(W, H), [W, H]);
   const keplerBack = useKeplerBackHandler();
@@ -234,21 +192,19 @@ export function SearchScreen({
         setError('');
       } else {
         moreInFlight.current = true;
-        setResults((r) =>
-          r ? {...r, loadingMore: true, moreFailed: false} : r,
-        );
+        setResults(r => (r ? {...r, loadingMore: true, moreFailed: false} : r));
       }
       try {
         const r = await mycelium.search(plugin.pluginId, q, page, f);
         if (id !== seq.current) {
           return;
         }
-        setResults((prev) => {
+        setResults(prev => {
           const base = page > 1 && prev ? prev.cards : [];
-          const seen = new Set(base.map((c) => c.key));
+          const seen = new Set(base.map(c => c.key));
           const next = r.items
-            .map((i) => catalogCard(plugin.pluginId, i, 'poster'))
-            .filter((c) => !seen.has(c.key) && !!seen.add(c.key));
+            .map(i => catalogCard(plugin.pluginId, i, 'poster'))
+            .filter(c => !seen.has(c.key) && !!seen.add(c.key));
           return {
             cards: [...base, ...next],
             page,
@@ -268,9 +224,7 @@ export function SearchScreen({
           setResults(null);
           setError(errorText(e));
         } else {
-          setResults((r) =>
-            r ? {...r, loadingMore: false, moreFailed: true} : r,
-          );
+          setResults(r => (r ? {...r, loadingMore: false, moreFailed: true} : r));
         }
       } finally {
         if (page > 1) {
@@ -297,10 +251,7 @@ export function SearchScreen({
       setError('');
       return;
     }
-    const t = setTimeout(
-      () => runSearch(q, active, 1),
-      filtersChanged ? 0 : DEBOUNCE_MS,
-    );
+    const t = setTimeout(() => runSearch(q, active, 1), filtersChanged ? 0 : DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [query, active, runSearch]);
 
@@ -344,14 +295,14 @@ export function SearchScreen({
   const wasCovered = useRef(covered);
   useEffect(() => {
     if (wasCovered.current && !covered) {
-      setRefocus((t) => t + 1);
+      setRefocus(t => t + 1);
     }
     wasCovered.current = covered;
   }, [covered]);
 
   const showKeyboard = () => {
     setKeyboardVisible(true);
-    setKbFocus((t) => t + 1);
+    setKbFocus(t => t + 1);
   };
 
   // ↑ from the results brings the keyboard back (Flutter onNavigateUp). With
@@ -374,7 +325,7 @@ export function SearchScreen({
   };
 
   const chips = Object.entries(active).map(([id, value]) => {
-    const f = filters.find((x) => x.id === id);
+    const f = filters.find(x => x.id === id);
     return {
       id,
       label: f ? `${f.label}: ${optionLabel(f, value)}` : `${id}: ${value}`,
@@ -393,29 +344,11 @@ export function SearchScreen({
           },
         ]}>
         <View style={[styles.headerRow, {gap: W * 0.006}]}>
-          <SquareButton
-            icon="back"
-            size={barH}
-            label="Indietro"
-            onFocus={onHeaderFocus}
-            onPress={onClose}
-          />
-          <View
-            style={[
-              styles.bar,
-              {height: barH, paddingHorizontal: barH * 0.22},
-            ]}>
-            <Icon
-              name="search"
-              size={barH * 0.4}
-              color="rgba(255,255,255,0.4)"
-            />
+          <SquareButton icon="back" size={barH} label="Indietro" onFocus={onHeaderFocus} onPress={onClose} />
+          <View style={[styles.bar, {height: barH, paddingHorizontal: barH * 0.22}]}>
+            <Icon name="search" size={barH * 0.4} color="rgba(255,255,255,0.4)" />
             <Text
-              style={[
-                styles.barText,
-                !query && styles.barPlaceholder,
-                {fontSize: barH * 0.3, marginLeft: barH * 0.18},
-              ]}
+              style={[styles.barText, !query && styles.barPlaceholder, {fontSize: barH * 0.3, marginLeft: barH * 0.18}]}
               numberOfLines={1}>
               {query || `Cerca in ${label}...`}
               {keyboardVisible ? <Text style={styles.caret}>|</Text> : null}
@@ -435,14 +368,14 @@ export function SearchScreen({
         </View>
         {chips.length ? (
           <View style={[styles.chips, {marginTop: vPad * 0.3}]}>
-            {chips.map((c) => (
+            {chips.map(c => (
               <ActiveChip
                 key={c.id}
                 label={c.label}
                 onFocus={onHeaderFocus}
                 onRemove={() => {
                   focusSoon(() => filterBtn.current);
-                  setActive((a) => setFilter(a, c.id, ''));
+                  setActive(a => setFilter(a, c.id, ''));
                 }}
               />
             ))}
@@ -451,11 +384,7 @@ export function SearchScreen({
       </View>
 
       {keyboardVisible ? (
-        <View
-          style={[
-            styles.header,
-            {paddingHorizontal: hPad, paddingBottom: vPad * 0.6},
-          ]}>
+        <View style={[styles.header, {paddingHorizontal: hPad, paddingBottom: vPad * 0.6}]}>
           <OnScreenKeyboard
             value={query}
             onChange={setQuery}
@@ -475,37 +404,24 @@ export function SearchScreen({
 
       <View style={styles.results}>
         {loading && !cards.length ? (
-          <ActivityIndicator
-            size="large"
-            color="rgba(255,255,255,0.54)"
-            style={styles.center}
-          />
+          <ActivityIndicator size="large" color="rgba(255,255,255,0.54)" style={styles.center} />
         ) : error ? (
           <View style={styles.center}>
             <Text style={styles.promptTitle}>Ricerca non riuscita.</Text>
             <Text style={styles.promptText}>{error}</Text>
-            <FocusButton
-              label="Riprova"
-              onPress={() => runSearch(query.trim(), active, 1)}
-              style={styles.retry}
-            />
+            <FocusButton label="Riprova" onPress={() => runSearch(query.trim(), active, 1)} style={styles.retry} />
           </View>
         ) : results && !cards.length ? (
           <View style={styles.center}>
             <Text style={styles.promptTitle}>Nessun risultato</Text>
             <Text style={styles.promptText}>
-              {query.trim()
-                ? `Niente per "${query.trim()}".`
-                : 'Prova con un altro termine o filtro.'}
+              {query.trim() ? `Niente per "${query.trim()}".` : 'Prova con un altro termine o filtro.'}
             </Text>
           </View>
         ) : cards.length ? (
           <View style={{marginTop: H * 0.01}}>
             {loading ? (
-              <ActivityIndicator
-                color="rgba(255,255,255,0.54)"
-                style={[styles.refreshing, {right: hPad}]}
-              />
+              <ActivityIndicator color="rgba(255,255,255,0.54)" style={[styles.refreshing, {right: hPad}]} />
             ) : null}
             <CarouselRow
               key={cards[0].key}
@@ -516,7 +432,7 @@ export function SearchScreen({
               takeFocus={false}
               focusRequest={refocus ? {index: focused, token: refocus} : null}
               onFocusCard={onFocusCard}
-              onPressCard={(i) => {
+              onPressCard={i => {
                 if (cards[i]) {
                   recentSearches.add(plugin.pluginId, query);
                   onOpenItem(cards[i]);
@@ -527,23 +443,18 @@ export function SearchScreen({
                   ? {
                       loading: results.loadingMore,
                       failed: results.moreFailed,
-                      onLoad: () =>
-                        runSearch(query.trim(), active, results.page + 1),
+                      onLoad: () => runSearch(query.trim(), active, results.page + 1),
                     }
                   : undefined
               }
             />
-            {cards[focused] ? (
-              <ItemInfo card={cards[focused]} H={H} hPad={hPad} />
-            ) : null}
+            {cards[focused] ? <ItemInfo card={cards[focused]} H={H} hPad={hPad} /> : null}
           </View>
         ) : (
           <View style={styles.center}>
             <Icon name="search" size={H * 0.07} color={colors.textLow} />
             <Text style={styles.promptTitle}>Cerca in {label}</Text>
-            <Text style={styles.promptText}>
-              Scrivi almeno {MIN_QUERY} lettere o scegli un filtro.
-            </Text>
+            <Text style={styles.promptText}>Scrivi almeno {MIN_QUERY} lettere o scegli un filtro.</Text>
           </View>
         )}
       </View>
@@ -553,7 +464,7 @@ export function SearchScreen({
           filters={filters}
           active={active}
           width={Math.min(560, Math.max(360, W * 0.32))}
-          onApply={(id, v) => setActive((a) => setFilter(a, id, v))}
+          onApply={(id, v) => setActive(a => setFilter(a, id, v))}
           onReset={() => setActive({})}
           onClose={closePanel}
         />

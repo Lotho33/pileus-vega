@@ -1,11 +1,12 @@
 // Full-bleed fanart + metadata column of the focused card. Port of the hero
 // half of _StandardHomeShell (shell.dart) and HomeHeroBackground.
 
-import React, {memo, useEffect, useState} from 'react';
+import React, {memo, useEffect, useRef, useState, useSyncExternalStore} from 'react';
 import {Animated, Image, StyleSheet, Text, View} from 'react-native';
 import {Gradient} from '../components/Gradient';
 import {backdropSrc, posterSrc} from '../core/images';
 import {logoRenderSize, logoUrlOnly} from '../core/logo';
+import * as perf from '../core/perf';
 import {colors, scaledStyles} from '../theme';
 import type {HomeLayout} from './layout';
 import type {HeroItem} from './model';
@@ -33,6 +34,7 @@ export function heroImageUrls(item: HeroItem, L: HomeLayout): string[] {
  */
 function HeroLogo({item, L}: {item: HeroItem; L: HomeLayout}) {
   const [state, setState] = useState<'loading' | 'ok' | 'failed'>('loading');
+  const t0 = useRef(Date.now());
   if (state === 'failed') {
     return <HeroTitle item={item} L={L} />;
   }
@@ -42,7 +44,10 @@ function HeroLogo({item, L}: {item: HeroItem; L: HomeLayout}) {
       source={{uri: logoSrc(item.logo, L)}}
       style={[{width: size.w, height: size.h}, state !== 'ok' && styles.hidden]}
       resizeMode="contain"
-      onLoad={() => setState('ok')}
+      onLoad={() => {
+        perf.sample('hero logo', Date.now() - t0.current);
+        setState('ok');
+      }}
       onError={() => setState('failed')}
     />
   );
@@ -59,6 +64,8 @@ function HeroTitle({item, L}: {item: HeroItem; L: HomeLayout}) {
 interface Layer {
   url: string;
   opacity: Animated.Value;
+  loaded: boolean;
+  t0: number;
 }
 
 /**
@@ -66,6 +73,10 @@ interface Layer {
  * once it has loaded; the ones below are dropped after. Layers keep their
  * key and position, so nothing already on screen remounts (which is what
  * made the old prev/cur pair blink on every change).
+ *
+ * At most one image waits to load: a newer one replaces it (and unmounting
+ * it drops its download), so moving on quickly never leaves a queue of
+ * fanart the last card has to wait behind.
  */
 const HeroBackground = memo(function HeroBackground({url, W}: {url: string; W: number}) {
   const [layers, setLayers] = useState<Layer[]>([]);
@@ -78,17 +89,22 @@ const HeroBackground = memo(function HeroBackground({url, W}: {url: string; W: n
       if (ls.length && ls[ls.length - 1].url === url) {
         return ls;
       }
-      // A fanart still in the stack (already loaded, so onLoad won't fire
-      // again) comes back on its own instead of as a new layer.
-      const kept = ls.find(l => l.url === url);
+      // A fanart still in the stack and loaded (onLoad won't fire again)
+      // comes back on its own instead of as a new layer.
+      const kept = ls.find(l => l.url === url && l.loaded);
       if (kept) {
         return [kept];
       }
-      return [...ls, {url, opacity: new Animated.Value(0)}];
+      const shown = ls.filter(l => l.loaded).slice(-1);
+      return [...shown, {url, opacity: new Animated.Value(0), loaded: false, t0: Date.now()}];
     });
   }, [url]);
 
   const onLoad = (layer: Layer) => {
+    if (!layer.loaded) {
+      layer.loaded = true;
+      perf.sample('hero bg', Date.now() - layer.t0);
+    }
     Animated.timing(layer.opacity, {toValue: 1, duration: 260, useNativeDriver: true}).start(({finished}) => {
       if (finished) {
         setLayers(ls => {
@@ -163,10 +179,7 @@ export const Hero = memo(function Hero({item, L}: {item: HeroItem | null; L: Hom
             {item.genres.map(g => (
               <View
                 key={g}
-                style={[
-                  styles.genre,
-                  {paddingHorizontal: L.H * (9 / 1080), paddingVertical: L.H * (3 / 1080)},
-                ]}>
+                style={[styles.genre, {paddingHorizontal: L.H * (9 / 1080), paddingVertical: L.H * (3 / 1080)}]}>
                 <Text style={[styles.genreText, {fontSize: L.genreFs}]}>{g}</Text>
               </View>
             ))}
@@ -212,4 +225,40 @@ const styles = scaledStyles({
   },
   genreText: {color: colors.textMid, letterSpacing: 0.2},
   plot: {color: 'rgba(242,242,240,0.65)'},
+});
+
+/**
+ * The hero item outside React state: PluginHome changes it on every card it
+ * settles on, and as its own state that re-rendered the whole home — the row
+ * and every visible card included — for each change. Only HeroFromStore
+ * re-renders now.
+ */
+export interface HeroStore {
+  get: () => HeroItem | null;
+  set: (item: HeroItem | null) => void;
+  subscribe: (listener: () => void) => () => void;
+}
+
+export function createHeroStore(): HeroStore {
+  let item: HeroItem | null = null;
+  const listeners = new Set<() => void>();
+  return {
+    get: () => item,
+    set: next => {
+      if (next === item) {
+        return;
+      }
+      item = next;
+      listeners.forEach(l => l());
+    },
+    subscribe: listener => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+}
+
+export const HeroFromStore = memo(function HeroFromStore({store, L}: {store: HeroStore; L: HomeLayout}) {
+  const item = useSyncExternalStore(store.subscribe, store.get);
+  return <Hero item={item} L={L} />;
 });

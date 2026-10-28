@@ -6,6 +6,7 @@ import React, {createContext, useCallback, useContext, useEffect, useState} from
 import type {ProfileResponse} from '../gen/auth';
 import {mycelium} from '../core/api';
 import {loadLanguageMemory, setLanguageProfile} from '../core/language';
+import {loadMetrics} from '../core/metrics';
 import {loadRecentSearches} from '../core/recentSearches';
 import {GrpcError, GrpcStatus} from '../core/grpcWeb';
 import {originFor, parseServerAddressInput} from '../core/serverAddress';
@@ -85,7 +86,7 @@ export function AuthProvider({children}: {children: React.ReactNode}) {
 
   useEffect(() => {
     (async () => {
-      await Promise.all([loadLanguageMemory(), loadRecentSearches()]);
+      await Promise.all([loadLanguageMemory(), loadRecentSearches(), loadMetrics()]);
       const s = await readSession();
       setSession(s);
       if (!s.serverInput) {

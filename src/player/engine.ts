@@ -9,6 +9,7 @@
 
 import {VideoPlayer} from '@amazon-devices/react-native-w3cmedia';
 import {loadDevicePrefs} from '../core/devicePrefs';
+import {capRestrictions, qualityTier, rememberBandwidth, startBandwidth, tierLabel} from './quality';
 import {loadShaka} from './shakaSetup';
 import {CueStore} from './subtitles';
 
@@ -44,7 +45,11 @@ export function shakaErrorText(detail: any): string {
     const [uri, status] = detail.data;
     let path = '';
     try {
-      path = String(uri ?? '').split('?')[0].split('/').slice(-2).join('/');
+      path = String(uri ?? '')
+        .split('?')[0]
+        .split('/')
+        .slice(-2)
+        .join('/');
     } catch {
       path = '';
     }
@@ -58,7 +63,16 @@ export function isHlsUrl(url: string): boolean {
   return path.endsWith('.m3u8') || path.includes('/playlist/');
 }
 
-const MEDIA_EVENTS: EngineEvent[] = ['timeupdate', 'playing', 'pause', 'waiting', 'ended', 'error', 'loadedmetadata', 'resize'];
+const MEDIA_EVENTS: EngineEvent[] = [
+  'timeupdate',
+  'playing',
+  'pause',
+  'waiting',
+  'ended',
+  'error',
+  'loadedmetadata',
+  'resize',
+];
 
 export class PlayerEngine {
   private video: VideoPlayer | null = null;
@@ -139,6 +153,7 @@ export class PlayerEngine {
       }
       // Preferenze: "Qualità video massima" and "Riserva di riproduzione".
       const prefs = await loadDevicePrefs();
+      const startBps = await startBandwidth();
       const reserve = opts.isLive ? prefs.liveBufferSec : prefs.vodBufferSec;
       this.shaka.configure({
         streaming: {
@@ -154,7 +169,11 @@ export class PlayerEngine {
         },
         abr: {
           enabled: true,
-          restrictions: {maxHeight: prefs.maxVideoHeight > 0 ? prefs.maxVideoHeight : Infinity},
+          restrictions: capRestrictions(prefs.maxVideoHeight),
+          // Start from what the last playback measured, not Shaka's 1 Mbps
+          // (or the system's estimate): see quality.ts.
+          defaultBandwidthEstimate: startBps,
+          useNetworkInformation: false,
         },
       });
       await this.shaka.load(url, opts.startAt && opts.startAt > 0 ? opts.startAt : null);
@@ -248,7 +267,12 @@ export class PlayerEngine {
     const out: Track[] = [];
     for (let i = 0; list && i < list.length; i++) {
       const t = list[i];
-      out.push({id: `a${i}`, label: t.label || t.language || `Traccia ${i + 1}`, language: t.language ?? '', active: !!t.enabled});
+      out.push({
+        id: `a${i}`,
+        label: t.label || t.language || `Traccia ${i + 1}`,
+        language: t.language ?? '',
+        active: !!t.enabled,
+      });
     }
     return out;
   }
@@ -269,37 +293,43 @@ export class PlayerEngine {
     this.emit('tracks');
   }
 
-  /** 'auto' (ABR) first, then one entry per height, best first. */
+  /** 'auto' (ABR) first, then one entry per quality tier, best first. */
   videoTracks(): Track[] {
     if (!this.shaka) {
       return [];
     }
     const variants: any[] = (this.shaka.getVariantTracks?.() ?? []).filter((t: any) => t.height > 0);
-    const byHeight = new Map<number, any>();
+    const tierOf = (t: any) => qualityTier(t.width ?? 0, t.height);
+    const byTier = new Map<number, any>();
     for (const t of variants) {
-      const cur = byHeight.get(t.height);
+      const cur = byTier.get(tierOf(t));
       if (!cur || (t.active && !cur.active) || (!cur.active && t.bandwidth > cur.bandwidth)) {
-        byHeight.set(t.height, t);
+        byTier.set(tierOf(t), t);
       }
     }
-    const heights = [...byHeight.keys()].sort((a, b) => b - a);
-    if (heights.length < 2) {
+    const tiers = [...byTier.keys()].sort((a, b) => b - a);
+    if (tiers.length < 2) {
       return [];
     }
     const abr = this.shaka.getConfiguration?.().abr?.enabled !== false;
     const active = variants.find((t: any) => t.active);
     return [
-      {id: 'auto', label: active && abr ? `Automatica (${active.height}p)` : 'Automatica', language: '', active: abr},
-      ...heights.map(h => {
-        const t = byHeight.get(h);
-        const parts = [`${h}p`];
+      {
+        id: 'auto',
+        label: active && abr ? `Automatica (${tierLabel(tierOf(active))})` : 'Automatica',
+        language: '',
+        active: abr,
+      },
+      ...tiers.map(h => {
+        const t = byTier.get(h);
+        const parts = [tierLabel(h)];
         if (t.frameRate > 0) {
           parts.push(`${Math.round(t.frameRate)} fps`);
         }
         if (t.bandwidth > 0) {
           parts.push(`${(t.bandwidth / 1e6).toFixed(1)} Mbps`);
         }
-        return {id: `v${h}`, label: parts.join(' · '), language: '', active: !abr && active?.height === h};
+        return {id: `v${h}`, label: parts.join(' · '), language: '', active: !abr && !!active && tierOf(active) === h};
       }),
     ];
   }
@@ -313,8 +343,10 @@ export class PlayerEngine {
     } else {
       const h = Number(id.slice(1));
       const active = (this.shaka.getVariantTracks?.() ?? []).find((t: any) => t.active);
-      const candidates = (this.shaka.getVariantTracks?.() ?? []).filter((t: any) => t.height === h);
-      // Same audio as now, highest bitrate at that height.
+      const candidates = (this.shaka.getVariantTracks?.() ?? []).filter(
+        (t: any) => t.height > 0 && qualityTier(t.width ?? 0, t.height) === h,
+      );
+      // Same audio as now, highest bitrate in that tier.
       const pick =
         candidates
           .filter((t: any) => !active || t.language === active.language)
@@ -350,7 +382,12 @@ export class PlayerEngine {
       if (t.kind === 'metadata') {
         continue;
       }
-      out.push({id: `t${i}`, label: t.label || t.language || `Sottotitoli ${i + 1}`, language: t.language ?? '', active: t.mode === 'showing'});
+      out.push({
+        id: `t${i}`,
+        label: t.label || t.language || `Sottotitoli ${i + 1}`,
+        language: t.language ?? '',
+        active: t.mode === 'showing',
+      });
     }
     return out;
   }
@@ -380,6 +417,12 @@ export class PlayerEngine {
 
   async destroy(): Promise<void> {
     this.listeners.clear();
+    // The next video starts from this throughput (quality.ts).
+    try {
+      rememberBandwidth(this.shaka?.getStats?.().estimatedBandwidth ?? 0);
+    } catch {
+      // No stats: keep the previous estimate.
+    }
     const v = this.video;
     this.video = null;
     try {

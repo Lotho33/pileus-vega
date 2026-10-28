@@ -22,13 +22,7 @@
 // Back: closes the panel, then hides the overlay, then leaves (saving the
 // position).
 
-import React, {
-  forwardRef,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import React, {forwardRef, useCallback, useEffect, useRef, useState} from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -39,26 +33,15 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import {
-  TVFocusGuideView,
-  useKeplerBackHandler,
-  useTVEventHandler,
-} from '@amazon-devices/react-native-kepler';
-import {
-  KeplerCaptionsView,
-  KeplerVideoSurfaceView,
-} from '@amazon-devices/react-native-w3cmedia';
+import {TVFocusGuideView, useKeplerBackHandler, useTVEventHandler} from '@amazon-devices/react-native-kepler';
+import {KeplerCaptionsView, KeplerVideoSurfaceView} from '@amazon-devices/react-native-w3cmedia';
 import {FocusButton} from '../components/FocusButton';
 import {Gradient} from '../components/Gradient';
 import {Icon, IconName} from '../components/Icon';
 import {mycelium} from '../core/api';
 import {focusSoon} from '../core/focus';
-import {
-  AudioLangPref,
-  languageNotice,
-  parsePreferredLanguage,
-  sourceMemory,
-} from '../core/language';
+import * as perf from '../core/perf';
+import {AudioLangPref, languageNotice, parsePreferredLanguage, sourceMemory} from '../core/language';
 import {backdropSrc} from '../core/images';
 import {argbToCss, parseSubtitleStyle} from '../core/prefs';
 import {useAuth} from '../state/auth';
@@ -87,20 +70,8 @@ import {
   stepEpisode,
   streamIdForNext,
 } from './episodes';
-import {
-  classifyResolveError,
-  fmtClock,
-  PlayRequest,
-  resolveWithRetry,
-  saveProgress,
-} from './session';
-import {
-  getViewMode,
-  setViewMode,
-  surfaceBox,
-  ViewMode,
-  VIEW_MODES,
-} from './viewMode';
+import {classifyResolveError, fmtClock, PlayRequest, resolveWithRetry, saveProgress} from './session';
+import {getViewMode, setViewMode, surfaceBox, ViewMode, VIEW_MODES} from './viewMode';
 import {LiveFailover} from './liveFailover';
 
 const HIDE_AFTER_MS = 5000;
@@ -138,84 +109,62 @@ interface PanelItem {
   onPress?: () => void;
 }
 
-const ControlButton = forwardRef<
-  View,
-  {icon?: IconName; label?: string; onPress: () => void; onFocus?: () => void}
->(function ControlButton({icon, label, onPress, onFocus}, ref) {
-  const [focused, setFocused] = useState(false);
-  return (
-    <Pressable
-      ref={ref}
-      accessibilityLabel={label ?? icon}
-      onFocus={() => {
-        setFocused(true);
-        onFocus?.();
-      }}
-      onBlur={() => setFocused(false)}
-      onPress={onPress}
-      style={[
-        styles.ctrl,
-        label ? styles.ctrlWide : null,
-        focused && styles.ctrlFocused,
-      ]}>
-      {icon ? (
-        <Icon
-          name={icon}
-          size={px(36)}
-          color={focused ? colors.bg : colors.textHigh}
-        />
-      ) : null}
-      {label ? (
-        <Text style={[styles.ctrlText, focused && styles.ctrlTextFocused]}>
-          {label}
-        </Text>
-      ) : null}
-    </Pressable>
-  );
-});
+const ControlButton = forwardRef<View, {icon?: IconName; label?: string; onPress: () => void; onFocus?: () => void}>(
+  function ControlButton({icon, label, onPress, onFocus}, ref) {
+    const [focused, setFocused] = useState(false);
+    return (
+      <Pressable
+        ref={ref}
+        accessibilityLabel={label ?? icon}
+        onFocus={() => {
+          setFocused(true);
+          onFocus?.();
+        }}
+        onBlur={() => setFocused(false)}
+        onPress={onPress}
+        style={[styles.ctrl, label ? styles.ctrlWide : null, focused && styles.ctrlFocused]}>
+        {icon ? <Icon name={icon} size={px(36)} color={focused ? colors.bg : colors.textHigh} /> : null}
+        {label ? <Text style={[styles.ctrlText, focused && styles.ctrlTextFocused]}>{label}</Text> : null}
+      </Pressable>
+    );
+  },
+);
 
 /** The skip and countdown buttons (skip_intro_button.dart). */
-const PromptButton = forwardRef<
-  View,
-  {icon: IconName; label?: string; primary?: boolean; onPress: () => void}
->(function PromptButton({icon, label, primary, onPress}, ref) {
-  const [focused, setFocused] = useState(false);
-  return (
-    <Pressable
-      ref={ref}
-      accessibilityLabel={label ?? 'Chiudi'}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-      onPress={onPress}
-      style={[
-        label ? styles.prompt : styles.promptClose,
-        primary && styles.promptPrimary,
-        focused && styles.promptFocused,
-      ]}>
-      <Icon
-        name={icon}
-        size={px(label ? (primary ? 36 : 44) : 32)}
-        color={
-          primary && !focused
-            ? colors.bg
-            : label || focused
-            ? colors.textHigh
-            : colors.textMid
-        }
-      />
-      {label ? (
-        <Text
-          style={[
-            styles.promptText,
-            primary && styles.promptTextPrimary,
-            primary && !focused && styles.promptTextDark,
-          ]}>
-          {label}
-        </Text>
-      ) : null}
-    </Pressable>
-  );
-});
+const PromptButton = forwardRef<View, {icon: IconName; label?: string; primary?: boolean; onPress: () => void}>(
+  function PromptButton({icon, label, primary, onPress}, ref) {
+    const [focused, setFocused] = useState(false);
+    return (
+      <Pressable
+        ref={ref}
+        accessibilityLabel={label ?? 'Chiudi'}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        onPress={onPress}
+        style={[
+          label ? styles.prompt : styles.promptClose,
+          primary && styles.promptPrimary,
+          focused && styles.promptFocused,
+        ]}>
+        <Icon
+          name={icon}
+          size={px(label ? (primary ? 36 : 44) : 32)}
+          color={primary && !focused ? colors.bg : label || focused ? colors.textHigh : colors.textMid}
+        />
+        {label ? (
+          <Text
+            style={[
+              styles.promptText,
+              primary && styles.promptTextPrimary,
+              primary && !focused && styles.promptTextDark,
+            ]}>
+            {label}
+          </Text>
+        ) : null}
+      </Pressable>
+    );
+  },
+);
 
 function PanelRow({
   label,
@@ -241,9 +190,7 @@ function PanelRow({
       onBlur={() => setFocused(false)}
       onPress={onPress}
       style={[styles.row, focused && styles.rowFocused]}>
-      <Text
-        style={[styles.rowText, (focused || active) && styles.rowTextOn]}
-        numberOfLines={1}>
+      <Text style={[styles.rowText, (focused || active) && styles.rowTextOn]} numberOfLines={1}>
         {label}
       </Text>
       {value !== undefined ? (
@@ -251,11 +198,7 @@ function PanelRow({
           <Text style={styles.rowValue} numberOfLines={1}>
             {value}
           </Text>
-          <Icon
-            name="chevronRight"
-            size={px(28)}
-            color={focused ? colors.textHigh : colors.textLow}
-          />
+          <Icon name="chevronRight" size={px(28)} color={focused ? colors.textHigh : colors.textLow} />
         </>
       ) : active ? (
         <Text style={styles.check}>✓</Text>
@@ -274,6 +217,9 @@ export function PlayerScreen({
   /** The next/previous episode has no source: show its page instead. */
   onOpenEpisode?: (target: OpenTarget) => void;
 }) {
+  useEffect(() => perf.enterScreen('player'), []);
+  // Play → first frame, for the profiling summary.
+  const firstFrame = useRef<(() => void) | null>(null);
   const keplerBack = useKeplerBackHandler();
   const [req, setReq] = useState(request);
   const [phase, setPhase] = useState<Phase>({kind: 'resolving', message: ''});
@@ -360,15 +306,13 @@ export function PlayerScreen({
 
   const start = useCallback(
     async (r: PlayRequest, takeOver: boolean, pre?: ResolveResponse) => {
+      firstFrame.current = perf.start('play first frame');
       setPhase({kind: 'resolving', message: ''});
       setPanel(null);
       audioPref.reset();
       if (r.isLive) {
-        const ids = r.sources.map((x) => x.id);
-        if (
-          !failover.current ||
-          failover.current.sources.join('\n') !== ids.join('\n')
-        ) {
+        const ids = r.sources.map(x => x.id);
+        if (!failover.current || failover.current.sources.join('\n') !== ids.join('\n')) {
           failover.current = new LiveFailover(ids, r.streamId);
         } else {
           failover.current.switchedTo(r.streamId);
@@ -435,16 +379,14 @@ export function PlayerScreen({
             const cur = reqRef.current;
             if (rememberedFor.current !== cur.streamId) {
               rememberedFor.current = cur.streamId;
-              sourceMemory.remember(
-                cur.pluginId,
-                cur.parentId,
-                cur.sourceLabel,
-              );
+              sourceMemory.remember(cur.pluginId, cur.parentId, cur.sourceLabel);
             }
             transitioning.current = false;
+            firstFrame.current?.();
+            firstFrame.current = null;
             setBuffering(false);
             setPaused(false);
-            setPhase((p) => (p.kind === 'opening' ? {kind: 'playing'} : p));
+            setPhase(p => (p.kind === 'opening' ? {kind: 'playing'} : p));
           });
           e.on('pause', () => setPaused(true));
           e.on('waiting', () => setBuffering(true));
@@ -475,11 +417,7 @@ export function PlayerScreen({
               clearTimeout(errorGrace.current);
             }
             errorGrace.current = setTimeout(() => {
-              if (
-                alive.current &&
-                engine.current === e &&
-                lastProgressAt.current <= firedAt
-              ) {
+              if (alive.current && engine.current === e && lastProgressAt.current <= firedAt) {
                 if (!failoverRef.current()) {
                   setPhase({kind: 'error', message});
                 }
@@ -516,10 +454,7 @@ export function PlayerScreen({
         } else {
           setPhase({
             kind: 'error',
-            message:
-              engine.current?.lastError ||
-              f.message ||
-              'Stream non disponibile.',
+            message: engine.current?.lastError || f.message || 'Stream non disponibile.',
           });
         }
       }
@@ -530,7 +465,7 @@ export function PlayerScreen({
   failoverRef.current = () => {
     const cur = reqRef.current;
     const nextId = cur.isLive ? failover.current?.next() : null;
-    const src = nextId ? cur.sources.find((x) => x.id === nextId) : undefined;
+    const src = nextId ? cur.sources.find(x => x.id === nextId) : undefined;
     if (!src || !alive.current) {
       return false;
     }
@@ -550,11 +485,7 @@ export function PlayerScreen({
       }
       setSwitching(true);
       try {
-        const nav = await stepEpisode(
-          cur.pluginId,
-          cur.nav,
-          cur.nav.index + delta,
-        );
+        const nav = await stepEpisode(cur.pluginId, cur.nav, cur.nav.index + delta);
         if (!nav || !alive.current) {
           return;
         }
@@ -597,11 +528,7 @@ export function PlayerScreen({
         setBannerDismissed(false);
         setSkips([]);
         setReq(next);
-        start(
-          next,
-          false,
-          pre && pre.streamId === next.streamId ? pre.resolved : undefined,
-        );
+        start(next, false, pre && pre.streamId === next.streamId ? pre.resolved : undefined);
       } catch (err) {
         if (alive.current) {
           const msg = err instanceof Error ? err.message : String(err);
@@ -630,9 +557,9 @@ export function PlayerScreen({
     if (!request.nav && !request.directUrl) {
       navLoading.current = true;
       loadEpisodeNav(request)
-        .then((r) => {
+        .then(r => {
           if (r && alive.current) {
-            setReq((cur) =>
+            setReq(cur =>
               cur.streamId === request.streamId
                 ? {
                     ...cur,
@@ -675,7 +602,7 @@ export function PlayerScreen({
     const t = setInterval(() => {
       const e = engine.current;
       const next = e ? e.cues.textAt(e.position) : '';
-      setSubText((cur) => (cur === next ? cur : next));
+      setSubText(cur => (cur === next ? cur : next));
     }, 200);
     return () => clearInterval(t);
   }, [phase.kind]);
@@ -714,7 +641,7 @@ export function PlayerScreen({
       const r = req;
       const nav = r.nav!;
       streamIdForNext(r.pluginId, next, r.sourceLabel)
-        .then((mediaId) =>
+        .then(mediaId =>
           mycelium.updateProgress({
             pluginId: r.pluginId,
             mediaId,
@@ -734,9 +661,7 @@ export function PlayerScreen({
           }),
         )
         .catch(() => {})
-        .finally(() =>
-          mycelium.deleteProgress(r.pluginId, r.streamId).catch(() => {}),
-        );
+        .finally(() => mycelium.deleteProgress(r.pluginId, r.streamId).catch(() => {}));
     } else if (!hasNextEpisode(req.nav) && frac >= CW_DROP) {
       progressCleared.current = true;
       mycelium.deleteProgress(req.pluginId, req.streamId).catch(() => {});
@@ -745,19 +670,8 @@ export function PlayerScreen({
 
   // Resolve the next episode of the season in the background past 80%.
   useEffect(() => {
-    if (
-      !req.isLive &&
-      phase.kind === 'playing' &&
-      !transitioning.current &&
-      !req.directUrl
-    ) {
-      prefetcher.maybeStart(
-        req.pluginId,
-        position,
-        duration,
-        sameSeasonNext(req.nav),
-        req.sourceLabel,
-      );
+    if (!req.isLive && phase.kind === 'playing' && !transitioning.current && !req.directUrl) {
+      prefetcher.maybeStart(req.pluginId, position, duration, sameSeasonNext(req.nav), req.sourceLabel);
     }
   }, [position, duration, phase.kind, req, prefetcher]);
   useEffect(() => () => prefetcher.clear(), [prefetcher]);
@@ -800,10 +714,7 @@ export function PlayerScreen({
       }
       const reopen = () => {
         const r = reqRef.current;
-        start(
-          {...r, startAt: r.isLive ? 0 : Math.max(0, lastPos.current)},
-          false,
-        );
+        start({...r, startAt: r.isLive ? 0 : Math.max(0, lastPos.current)}, false);
       };
       if (buffering) {
         stallStrikes.current = 0;
@@ -878,51 +789,33 @@ export function PlayerScreen({
 
   // Skip button: the interval under the playhead, unless dismissed. On the
   // ending, with an episode after this one, it jumps there instead.
-  const skip =
-    phase.kind === 'playing' && !req.isLive && !switching
-      ? activeSkip(skips, position)
-      : null;
+  const skip = phase.kind === 'playing' && !req.isLive && !switching ? activeSkip(skips, position) : null;
   const showSkipButton = !!skip && skip !== skipDismissed;
   const hasNext = hasNextEpisode(req.nav);
   const hasPrev = hasPrevEpisode(req.nav);
   const outroToNext = showSkipButton && skip.type === 'ed' && hasNext;
   const endLogic =
-    phase.kind === 'playing' &&
-    !req.isLive &&
-    hasNext &&
-    !switching &&
-    duration > MIN_DURATION_FOR_END_LOGIC_SEC;
-  const tick = endLogic
-    ? nextEpisodeTick(position, duration, skips, bannerDismissed)
-    : null;
+    phase.kind === 'playing' && !req.isLive && hasNext && !switching && duration > MIN_DURATION_FOR_END_LOGIC_SEC;
+  const tick = endLogic ? nextEpisodeTick(position, duration, skips, bannerDismissed) : null;
   const bannerSecs = tick?.bannerSecs ?? null;
   const showBanner = bannerSecs !== null;
   // The countdown already offers "Vai subito": no second button on the ending.
   const showSkip = showSkipButton && !(outroToNext && showBanner);
-  const nextEp =
-    req.nav && hasNext ? req.nav.episodes[req.nav.index + 1] : undefined;
+  const nextEp = req.nav && hasNext ? req.nav.episodes[req.nav.index + 1] : undefined;
 
   // The prompt holding focus while the overlay is hidden.
-  const promptKey = showBanner
-    ? 'banner'
-    : showSkip
-    ? `skip:${skip.type}:${skip.start}`
-    : '';
+  const promptKey = showBanner ? 'banner' : showSkip ? `skip:${skip.type}:${skip.start}` : '';
 
   useEffect(() => {
     if (promptKey && !panel) {
-      return focusSoon(() =>
-        promptKey === 'banner' ? bannerBtn.current : skipBtn.current,
-      );
+      return focusSoon(() => (promptKey === 'banner' ? bannerBtn.current : skipBtn.current));
     }
     // Only a new prompt (or the overlay going away) moves focus here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [promptKey]);
   useEffect(() => {
     if (promptKey && !overlay && !panel) {
-      return focusSoon(() =>
-        promptKey === 'banner' ? bannerBtn.current : skipBtn.current,
-      );
+      return focusSoon(() => (promptKey === 'banner' ? bannerBtn.current : skipBtn.current));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [overlay, panel]);
@@ -939,7 +832,7 @@ export function PlayerScreen({
 
   // Held ←/→ with the overlay hidden: preview the target, seek on release.
   const held = useRef({dir: 0, count: 0, target: 0});
-  useTVEventHandler((evt) => {
+  useTVEventHandler(evt => {
     if (phase.kind !== 'playing' || panel) {
       return;
     }
@@ -1007,7 +900,7 @@ export function PlayerScreen({
   }, [panel, overlay, phase.kind, paused, onExit, keplerBack, bumpOverlay]);
 
   const switchSource = (id: string) => {
-    const src = req.sources.find((s) => s.id === id);
+    const src = req.sources.find(s => s.id === id);
     if (!src || src.id === req.streamId) {
       setPanel(null);
       return;
@@ -1030,12 +923,7 @@ export function PlayerScreen({
   const progress = duration > 0 ? Math.min(1, shownPos / duration) : 0;
   const heading = req.showTitle || req.title;
   const sub = req.showTitle
-    ? [
-        req.seasonNumber > 0 && req.episodeNumber > 0
-          ? `S${req.seasonNumber} · E${req.episodeNumber}`
-          : '',
-        req.title,
-      ]
+    ? [req.seasonNumber > 0 && req.episodeNumber > 0 ? `S${req.seasonNumber} · E${req.episodeNumber}` : '', req.title]
         .filter(Boolean)
         .join('  ·  ')
     : req.sourceLabel;
@@ -1046,25 +934,22 @@ export function PlayerScreen({
     ? ''
     : languageNotice(
         req.sources,
-        req.sources.find((x) => x.id === req.streamId) ?? null,
+        req.sources.find(x => x.id === req.streamId) ?? null,
         parsePreferredLanguage(profile?.preferencesJson ?? ''),
       );
 
   // For VOD the item's sources are its languages: they live under Audio,
   // together with the stream's own audio tracks when it has several.
   const languages = !req.isLive && req.sources.length > 1 ? req.sources : [];
-  const activeAudio = audio.find((t) => t.active);
-  const activeText = text.find((t) => t.active);
-  const activeVideo = video.find((t) => t.active);
+  const activeAudio = audio.find(t => t.active);
+  const activeText = text.find(t => t.active);
+  const activeVideo = video.find(t => t.active);
   const done = () => {
     setPanel(null);
     bumpOverlay();
   };
   const audioValue =
-    [
-      languages.length ? req.sourceLabel : '',
-      audio.length > 1 ? activeAudio?.label ?? '' : '',
-    ]
+    [languages.length ? req.sourceLabel : '', audio.length > 1 ? activeAudio?.label ?? '' : '']
       .filter(Boolean)
       .join(' · ') || '—';
 
@@ -1095,7 +980,7 @@ export function PlayerScreen({
       {
         key: 'format',
         label: 'Formato',
-        value: VIEW_MODES.find((m) => m.id === viewMode)?.label ?? '',
+        value: VIEW_MODES.find(m => m.id === viewMode)?.label ?? '',
         onPress: () => setPanel('format'),
       },
       ...(text.length
@@ -1122,10 +1007,8 @@ export function PlayerScreen({
   } else if (panel === 'audio') {
     panelTitle = 'Audio';
     panelItems = [
-      ...(languages.length && audio.length > 1
-        ? [{key: 'h-lang', label: 'LINGUA', heading: true}]
-        : []),
-      ...languages.map((src) => ({
+      ...(languages.length && audio.length > 1 ? [{key: 'h-lang', label: 'LINGUA', heading: true}] : []),
+      ...languages.map(src => ({
         key: `s${src.id}`,
         label: src.label || 'Sorgente',
         active: src.id === req.streamId,
@@ -1134,11 +1017,9 @@ export function PlayerScreen({
           done();
         },
       })),
-      ...(languages.length && audio.length > 1
-        ? [{key: 'h-track', label: 'TRACCIA AUDIO', heading: true}]
-        : []),
+      ...(languages.length && audio.length > 1 ? [{key: 'h-track', label: 'TRACCIA AUDIO', heading: true}] : []),
       ...(audio.length > 1
-        ? audio.map((t) => ({
+        ? audio.map(t => ({
             key: t.id,
             label: t.label,
             active: t.active,
@@ -1152,7 +1033,7 @@ export function PlayerScreen({
     ];
   } else if (panel === 'video') {
     panelTitle = 'Video';
-    panelItems = video.map((t) => ({
+    panelItems = video.map(t => ({
       key: t.id,
       label: t.label,
       active: t.active,
@@ -1163,7 +1044,7 @@ export function PlayerScreen({
     }));
   } else if (panel === 'format') {
     panelTitle = 'Formato';
-    panelItems = VIEW_MODES.map((m) => ({
+    panelItems = VIEW_MODES.map(m => ({
       key: m.id,
       label: m.label,
       active: m.id === viewMode,
@@ -1182,7 +1063,7 @@ export function PlayerScreen({
         active: !activeText,
         onPress: () => (engine.current?.selectText(null), done()),
       },
-      ...text.map((t) => ({
+      ...text.map(t => ({
         key: t.id,
         label: t.label,
         active: t.active,
@@ -1194,7 +1075,7 @@ export function PlayerScreen({
     ];
   } else if (panel === 'source') {
     panelTitle = 'Sorgente';
-    panelItems = req.sources.map((src) => ({
+    panelItems = req.sources.map(src => ({
       key: src.id,
       label: src.label || 'Sorgente',
       active: src.id === req.streamId,
@@ -1204,8 +1085,8 @@ export function PlayerScreen({
       },
     }));
   }
-  const selectable = panelItems.filter((i) => !i.heading);
-  const firstKey = (selectable.find((i) => i.active) ?? selectable[0])?.key;
+  const selectable = panelItems.filter(i => !i.heading);
+  const firstKey = (selectable.find(i => i.active) ?? selectable[0])?.key;
   const box = surfaceBox(viewMode, W, H, videoSize.w, videoSize.h);
 
   const catcherOn =
@@ -1218,12 +1099,7 @@ export function PlayerScreen({
   // Trapped as a whole: the details page below keeps its focusables, and
   // with the overlay hidden the catcher is the only thing to focus here.
   return (
-    <TVFocusGuideView
-      style={styles.root}
-      trapFocusUp
-      trapFocusDown
-      trapFocusLeft
-      trapFocusRight>
+    <TVFocusGuideView style={styles.root} trapFocusUp trapFocusDown trapFocusLeft trapFocusRight>
       <KeplerVideoSurfaceView
         style={[styles.surface, box]}
         onSurfaceViewCreated={(h: string) => {
@@ -1250,9 +1126,7 @@ export function PlayerScreen({
         }}
       />
       {subText ? (
-        <View
-          style={[styles.subsWrap, {bottom: subStyle.bottomPadding}]}
-          pointerEvents="none">
+        <View style={[styles.subsWrap, {bottom: subStyle.bottomPadding}]} pointerEvents="none">
           <Text
             style={[
               styles.subs,
@@ -1267,11 +1141,7 @@ export function PlayerScreen({
           </Text>
         </View>
       ) : null}
-      {catcherOn ? (
-        <FocusCatcher
-          onPress={phase.kind === 'playing' ? togglePlay : bumpOverlay}
-        />
-      ) : null}
+      {catcherOn ? <FocusCatcher onPress={phase.kind === 'playing' ? togglePlay : bumpOverlay} /> : null}
 
       {phase.kind === 'resolving' || phase.kind === 'opening' ? (
         // player_loading_backdrop.dart: the title's picture, darkened, with
@@ -1291,15 +1161,9 @@ export function PlayerScreen({
                 {heading}
               </Text>
             ) : null}
-            {[
-              sub,
-              !req.isLive && req.startAt > 0
-                ? `Riprende da ${fmtClock(req.startAt)}`
-                : '',
-              languageNote,
-            ]
+            {[sub, !req.isLive && req.startAt > 0 ? `Riprende da ${fmtClock(req.startAt)}` : '', languageNote]
               .filter(Boolean)
-              .map((l) => (
+              .map(l => (
                 <Text key={l} style={styles.backdropLine}>
                   {l}
                 </Text>
@@ -1307,24 +1171,15 @@ export function PlayerScreen({
           </View>
         </View>
       ) : null}
-      {phase.kind === 'resolving' ||
-      phase.kind === 'opening' ||
-      (buffering && phase.kind === 'playing') ? (
+      {phase.kind === 'resolving' || phase.kind === 'opening' || (buffering && phase.kind === 'playing') ? (
         <View style={styles.center} pointerEvents="none">
           <ActivityIndicator size="large" color={colors.textHigh} />
-          {phase.kind === 'resolving' && phase.message ? (
-            <Text style={styles.status}>{phase.message}</Text>
-          ) : null}
+          {phase.kind === 'resolving' && phase.message ? <Text style={styles.status}>{phase.message}</Text> : null}
         </View>
       ) : null}
 
       {phase.kind === 'playing' && overlay ? (
-        <TVFocusGuideView
-          style={StyleSheet.absoluteFill}
-          trapFocusUp
-          trapFocusDown
-          trapFocusLeft
-          trapFocusRight>
+        <TVFocusGuideView style={StyleSheet.absoluteFill} trapFocusUp trapFocusDown trapFocusLeft trapFocusRight>
           <View style={styles.top}>
             <Gradient name="playerTop" direction="toBottom" />
             <Text style={styles.title} numberOfLines={1}>
@@ -1350,7 +1205,7 @@ export function PlayerScreen({
                   <View style={[styles.fill, {width: `${progress * 100}%`}]} />
                   {/* Skip intervals over the fill, coloured by type (player_seek_bar.dart). */}
                   {duration > 0
-                    ? skips.map((k) => (
+                    ? skips.map(k => (
                         <View
                           key={`${k.type}${k.start}`}
                           style={[
@@ -1358,11 +1213,7 @@ export function PlayerScreen({
                             {backgroundColor: SKIP_COLORS[k.type]},
                             {
                               left: `${(k.start / duration) * 100}%`,
-                              width: `${
-                                ((Math.min(k.end, duration) - k.start) /
-                                  duration) *
-                                100
-                              }%`,
+                              width: `${((Math.min(k.end, duration) - k.start) / duration) * 100}%`,
                             },
                           ]}
                         />
@@ -1370,25 +1221,15 @@ export function PlayerScreen({
                     : null}
                   <View style={[styles.knob, {left: `${progress * 100}%`}]} />
                 </View>
-                <Text style={styles.time}>
-                  {duration > 0 ? `-${fmtClock(duration - shownPos)}` : '--:--'}
-                </Text>
+                <Text style={styles.time}>{duration > 0 ? `-${fmtClock(duration - shownPos)}` : '--:--'}</Text>
               </View>
             )}
             <View style={styles.controls}>
               {hasPrev ? (
-                <ControlButton
-                  icon="skipPrevious"
-                  onPress={() => goToEpisode(-1)}
-                  onFocus={bumpOverlay}
-                />
+                <ControlButton icon="skipPrevious" onPress={() => goToEpisode(-1)} onFocus={bumpOverlay} />
               ) : null}
               {!req.isLive ? (
-                <ControlButton
-                  label="−10"
-                  onPress={() => seekBy(-SEEK_STEP)}
-                  onFocus={bumpOverlay}
-                />
+                <ControlButton label="−10" onPress={() => seekBy(-SEEK_STEP)} onFocus={bumpOverlay} />
               ) : null}
               {!req.isLive || paused ? (
                 <ControlButton
@@ -1399,19 +1240,9 @@ export function PlayerScreen({
                 />
               ) : null}
               {!req.isLive ? (
-                <ControlButton
-                  label="+10"
-                  onPress={() => seekBy(SEEK_STEP)}
-                  onFocus={bumpOverlay}
-                />
+                <ControlButton label="+10" onPress={() => seekBy(SEEK_STEP)} onFocus={bumpOverlay} />
               ) : null}
-              {hasNext ? (
-                <ControlButton
-                  icon="skipNext"
-                  onPress={() => goToEpisode(1)}
-                  onFocus={bumpOverlay}
-                />
-              ) : null}
+              {hasNext ? <ControlButton icon="skipNext" onPress={() => goToEpisode(1)} onFocus={bumpOverlay} /> : null}
               {switching ? <ActivityIndicator color={colors.textHigh} /> : null}
               <View style={styles.spacer} />
               {req.isLive ? (
@@ -1424,11 +1255,7 @@ export function PlayerScreen({
                   onFocus={bumpOverlay}
                 />
               ) : null}
-              <ControlButton
-                icon="settings"
-                onPress={() => setPanel('master')}
-                onFocus={bumpOverlay}
-              />
+              <ControlButton icon="settings" onPress={() => setPanel('master')} onFocus={bumpOverlay} />
             </View>
           </View>
         </TVFocusGuideView>
@@ -1454,14 +1281,8 @@ export function PlayerScreen({
       ) : null}
 
       {showBanner ? (
-        <View
-          style={[
-            styles.banner,
-            {bottom: promptBottom + px(showSkip ? 110 : 0)},
-          ]}>
-          <Text style={styles.bannerLabel}>
-            Prossimo episodio in {bannerSecs}s
-          </Text>
+        <View style={[styles.banner, {bottom: promptBottom + px(showSkip ? 110 : 0)}]}>
+          <Text style={styles.bannerLabel}>Prossimo episodio in {bannerSecs}s</Text>
           {nextEp ? (
             <Text style={styles.bannerTitle} numberOfLines={1}>
               {episodeTitle(nextEp, req.showTitle)}
@@ -1500,15 +1321,10 @@ export function PlayerScreen({
       ) : null}
 
       {panel ? (
-        <TVFocusGuideView
-          style={styles.panel}
-          trapFocusUp
-          trapFocusDown
-          trapFocusLeft
-          trapFocusRight>
+        <TVFocusGuideView style={styles.panel} trapFocusUp trapFocusDown trapFocusLeft trapFocusRight>
           <Text style={styles.panelTitle}>{panelTitle}</Text>
           <ScrollView key={panel}>
-            {panelItems.map((it) =>
+            {panelItems.map(it =>
               it.heading ? (
                 <Text key={it.key} style={styles.panelHeading}>
                   {it.label}
@@ -1532,9 +1348,7 @@ export function PlayerScreen({
         <View style={styles.dialogScrim}>
           <View style={styles.dialog}>
             <Text style={styles.dialogTitle}>
-              {phase.kind === 'elsewhere'
-                ? 'Profilo in uso su un altro dispositivo'
-                : 'Impossibile riprodurre'}
+              {phase.kind === 'elsewhere' ? 'Profilo in uso su un altro dispositivo' : 'Impossibile riprodurre'}
             </Text>
             <Text style={styles.dialogText}>{phase.message}</Text>
             <View style={styles.dialogActions}>
@@ -1547,8 +1361,7 @@ export function PlayerScreen({
                     start(
                       {
                         ...reqRef.current,
-                        startAt:
-                          engine.current?.position || reqRef.current.startAt,
+                        startAt: engine.current?.position || reqRef.current.startAt,
                       },
                       true,
                     )
@@ -1560,12 +1373,11 @@ export function PlayerScreen({
                   primary
                   hasTVPreferredFocus
                   onPress={() => {
-                    setAttempt((a) => a + 1);
+                    setAttempt(a => a + 1);
                     start(
                       {
                         ...reqRef.current,
-                        startAt:
-                          engine.current?.position || reqRef.current.startAt,
+                        startAt: engine.current?.position || reqRef.current.startAt,
                       },
                       false,
                     );
@@ -1575,9 +1387,7 @@ export function PlayerScreen({
               <FocusButton label="Indietro" onPress={onExit} />
             </View>
             {attempt > 2 ? (
-              <Text style={styles.dialogHint}>
-                Se continua, prova un'altra sorgente dalla scheda.
-              </Text>
+              <Text style={styles.dialogHint}>Se continua, prova un'altra sorgente dalla scheda.</Text>
             ) : null}
           </View>
         </View>
@@ -1590,22 +1400,12 @@ export function PlayerScreen({
 function FocusCatcher({onPress}: {onPress: () => void}) {
   const ref = useRef<View>(null);
   useEffect(() => focusSoon(() => ref.current), []);
-  return (
-    <Pressable
-      ref={ref}
-      accessibilityLabel="Riproduzione"
-      onPress={onPress}
-      style={styles.catcher}
-    />
-  );
+  return <Pressable ref={ref} accessibilityLabel="Riproduzione" onPress={onPress} style={styles.catcher} />;
 }
 
 // The surface can be created before the engine exists (it's mounted first):
 // keep the handle and hand it over once the engine is up.
-function pendingSurface(
-  engine: React.MutableRefObject<PlayerEngine | null>,
-  handle: string,
-) {
+function pendingSurface(engine: React.MutableRefObject<PlayerEngine | null>, handle: string) {
   const t = setInterval(() => {
     if (engine.current) {
       engine.current.setSurface(handle);

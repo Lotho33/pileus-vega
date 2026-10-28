@@ -40,11 +40,7 @@ describe('skip markers', () => {
   });
 
   it('ends the active window a second early', () => {
-    const list = parseSkipTimes(
-      JSON.stringify([
-        {skipType: 'op', interval: {startTime: 10, endTime: 20}},
-      ]),
-    );
+    const list = parseSkipTimes(JSON.stringify([{skipType: 'op', interval: {startTime: 10, endTime: 20}}]));
     expect(activeSkip(list, 9.9)).toBeNull();
     expect(activeSkip(list, 10)?.type).toBe('op');
     expect(activeSkip(list, 18.9)?.type).toBe('op');
@@ -77,13 +73,11 @@ describe('episode navigation', () => {
   });
 
   it('crosses into the next season', async () => {
-    const browse = jest
-      .spyOn(mycelium, 'browse')
-      .mockResolvedValue({
-        items: [],
-        hasMore: false,
-        episodes: [{...ep('c', 1), thumbnailUrl: 't'} as any],
-      });
+    const browse = jest.spyOn(mycelium, 'browse').mockResolvedValue({
+      items: [],
+      hasMore: false,
+      episodes: [{...ep('c', 1), thumbnailUrl: 't'} as any],
+    });
     const next = await stepEpisode('p', nav, 2);
     expect(browse).toHaveBeenCalledWith('p', 's2');
     expect(next).toMatchObject({seasonIndex: 1, index: 0});
@@ -119,18 +113,13 @@ describe('next episode prefetch', () => {
       {id: 'n-ita', label: 'ITA'},
       {id: 'n-sub', label: 'SUB ITA'},
     ] as any);
-    const resolve = jest
-      .spyOn(mycelium, 'resolveStream')
-      .mockResolvedValue(resolved);
+    const resolve = jest.spyOn(mycelium, 'resolveStream').mockResolvedValue(resolved);
     const p = new EpisodePrefetcher();
     p.maybeStart('p', 70, 100, next, 'SUB ITA');
     expect(resolve).not.toHaveBeenCalled();
     p.maybeStart('p', 81, 100, next, 'SUB ITA');
-    await new Promise((r) => setTimeout(r, 0));
-    expect(resolve).toHaveBeenCalledWith(
-      expect.objectContaining({streamId: 'n-sub'}),
-      expect.anything(),
-    );
+    await new Promise(r => setTimeout(r, 0));
+    expect(resolve).toHaveBeenCalledWith(expect.objectContaining({streamId: 'n-sub'}), expect.anything());
     expect(p.take('other')).toBeNull();
     expect(p.take('n')).toMatchObject({streamId: 'n-sub', resolved});
     expect(p.take('n')).toBeNull();
@@ -140,7 +129,7 @@ describe('next episode prefetch', () => {
     jest.spyOn(mycelium, 'getStreams').mockRejectedValue(new Error('down'));
     const p = new EpisodePrefetcher();
     p.maybeStart('p', 90, 100, next, '');
-    await new Promise((r) => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
     expect(p.take('n')).toBeNull();
   });
 
@@ -153,9 +142,7 @@ describe('next episode prefetch', () => {
       seasonIndex: 0,
       seriesPoster: '',
     };
-    await expect(
-      requestForEpisode(emptyRequest({pluginId: 'p'}), nav),
-    ).rejects.toBeInstanceOf(NoSourceError);
+    await expect(requestForEpisode(emptyRequest({pluginId: 'p'}), nav)).rejects.toBeInstanceOf(NoSourceError);
   });
 });
 
@@ -192,9 +179,6 @@ describe('nextEpisodeTick', () => {
 
   it('last 30 s without markers; the shorter countdown wins', () => {
     expect(nextEpisodeTick(1410, dur, []).bannerSecs).toBe(30);
-    expect(
-      nextEpisodeTick(1426, dur, [{type: 'ed', start: 1425, end: 1440}])
-        .bannerSecs,
-    ).toBe(14);
+    expect(nextEpisodeTick(1426, dur, [{type: 'ed', start: 1425, end: 1440}]).bannerSecs).toBe(14);
   });
 });

@@ -1,3 +1,5 @@
+// Start of the "Avvio → home" clock (core/perf, PluginHome).
+globalThis.__pileusStart = Date.now();
 import './src/core/polyfills';
 import {AppRegistry, Dimensions, PixelRatio} from 'react-native';
 import {App} from './src/App';

@@ -102,6 +102,10 @@ describe('writePluginPrefs', () => {
 describe('subtitle style', () => {
   it('reads Flutter defaults and values, writes keeping other blocks', () => {
     expect(parseSubtitleStyle('')).toEqual({fontSize: 32, colorArgb: 0xffffffff, bgEnabled: true, bottomPadding: 80});
+    expect(parseSubtitleStyle('{"subtitles":{"fontSize":24.666666666666435,"bottomPadding":91.3}}')).toMatchObject({
+      fontSize: 25,
+      bottomPadding: 91,
+    });
     const src = JSON.stringify({v: 1, plugins: {order: ['a']}, subtitles: {fontSize: 40, colorArgb: 0xffffeb3b, bgEnabled: false}});
     const st = parseSubtitleStyle(src);
     expect(st).toEqual({fontSize: 40, colorArgb: 0xffffeb3b, bgEnabled: false, bottomPadding: 80});

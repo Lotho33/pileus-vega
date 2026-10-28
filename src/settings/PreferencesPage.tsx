@@ -27,6 +27,7 @@ import {
 import {parsePreferredLanguage, PreferredLanguage, writePreferredLanguage} from '../core/language';
 import {useAuth} from '../state/auth';
 import {scaledStyles} from '../theme';
+import {MetricsSection} from './MetricsSection';
 import {Note, Page, Row, SectionHeader, StepperRow} from './ui';
 
 const SAVE_AFTER_MS = 700;
@@ -69,7 +70,10 @@ export function PreferencesPage() {
   };
   const stepNum = (v: number, r: {min: number; max: number; step: number}, dir: -1 | 1) =>
     Math.min(r.max, Math.max(r.min, v + dir * r.step));
-  const colorIdx = Math.max(0, SUBTITLE_COLORS.findIndex(c => c.argb === sub.colorArgb));
+  const colorIdx = Math.max(
+    0,
+    SUBTITLE_COLORS.findIndex(c => c.argb === sub.colorArgb),
+  );
 
   // "Lingua preferita" (preferences_screen.dart _PreferredLanguagePrefRow):
   // which language version a Play picks, synced with the profile.
@@ -82,7 +86,10 @@ export function PreferencesPage() {
     const next: PreferredLanguage = lang === 'original' ? 'it' : 'original';
     setLang(next);
     try {
-      const r = await mycelium.setProfilePreferences(profile.profileId, writePreferredLanguage(profile.preferencesJson, next));
+      const r = await mycelium.setProfilePreferences(
+        profile.profileId,
+        writePreferredLanguage(profile.preferencesJson, next),
+      );
       updateProfile(r);
       setLangNote('');
     } catch {
@@ -139,7 +146,11 @@ export function PreferencesPage() {
           updateSub({...sub, colorArgb: SUBTITLE_COLORS[(colorIdx + dir + n) % n].argb});
         }}
       />
-      <Row label="Sfondo sottotitoli" value={sub.bgEnabled ? 'Sì' : 'No'} onPress={() => updateSub({...sub, bgEnabled: !sub.bgEnabled})} />
+      <Row
+        label="Sfondo sottotitoli"
+        value={sub.bgEnabled ? 'Sì' : 'No'}
+        onPress={() => updateSub({...sub, bgEnabled: !sub.bgEnabled})}
+      />
       <StepperRow
         label="Posizione verticale"
         subtitle="Distanza dal bordo inferiore"
@@ -175,6 +186,7 @@ export function PreferencesPage() {
           <Note text="Valgono per questo dispositivo, dalla prossima riproduzione. ← e → cambiano il valore." />
         </>
       ) : null}
+      <MetricsSection />
     </Page>
   );
 }

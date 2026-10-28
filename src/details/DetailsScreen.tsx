@@ -15,6 +15,7 @@ import {ActivityIndicator, StyleSheet, Text, View} from 'react-native';
 import {TVFocusGuideView, useKeplerBackHandler} from '@amazon-devices/react-native-kepler';
 import {FocusButton} from '../components/FocusButton';
 import {mycelium} from '../core/api';
+import * as perf from '../core/perf';
 import {focusSoon} from '../core/focus';
 import type {ContinueWatchingItem, DetailsResponse} from '../gen/media';
 import {useHomeLayout} from '../home/layout';
@@ -56,6 +57,7 @@ export function DetailsScreen({
   /** Open another item (related titles, folder children) on top of this page. */
   onOpen: (card: CardModel) => void;
 }) {
+  useEffect(() => perf.enterScreen('details'), []);
   const L = useHomeLayout();
   const keplerBack = useKeplerBackHandler();
   const direct = target.view === 'browse' || target.view === 'episode';

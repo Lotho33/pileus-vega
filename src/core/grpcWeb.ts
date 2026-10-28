@@ -13,6 +13,7 @@
 // is not.
 
 import type {BinaryWriter} from '@bufbuild/protobuf/wire';
+import * as perf from './perf';
 
 export interface MessageCodec<T> {
   encode(message: T, writer?: BinaryWriter): BinaryWriter;
@@ -39,10 +40,7 @@ export const GrpcStatus = {
 } as const;
 
 export class GrpcError extends Error {
-  constructor(
-    readonly code: number,
-    message: string,
-  ) {
+  constructor(readonly code: number, message: string) {
     super(message || `gRPC status ${code}`);
     this.name = 'GrpcError';
   }
@@ -136,9 +134,7 @@ function statusFrom(
   }
   return {
     code: Number(rawCode),
-    message: decodeGrpcMessage(
-      trailers['grpc-message'] ?? headers['grpc-message'],
-    ),
+    message: decodeGrpcMessage(trailers['grpc-message'] ?? headers['grpc-message']),
   };
 }
 
@@ -198,12 +194,7 @@ function post(
       const respHeaders = parseResponseHeaders(xhr.getAllResponseHeaders());
       if (xhr.status !== 200) {
         const st = statusFrom({}, respHeaders);
-        reject(
-          new GrpcError(
-            st?.code ?? httpStatusToGrpc(xhr.status),
-            st?.message || `HTTP ${xhr.status}`,
-          ),
-        );
+        reject(new GrpcError(st?.code ?? httpStatusToGrpc(xhr.status), st?.message || `HTTP ${xhr.status}`));
         return;
       }
       const buf = xhr.response as ArrayBuffer | null;
@@ -231,10 +222,7 @@ function post(
 }
 
 export class GrpcWebClient {
-  constructor(
-    private origin: string,
-    private metadata: MetadataProvider = () => ({}),
-  ) {}
+  constructor(private origin: string, private metadata: MetadataProvider = () => ({})) {}
 
   setOrigin(origin: string) {
     this.origin = origin.replace(/\/+$/, '');
@@ -245,6 +233,26 @@ export class GrpcWebClient {
   }
 
   private async call<Req, Res>(
+    path: string,
+    reqCodec: MessageCodec<Req>,
+    resCodec: MessageCodec<Res>,
+    request: Partial<Req>,
+    opts: CallOptions,
+  ): Promise<Res[]> {
+    // Round trip per method, for the profiling summary (core/perf).
+    const name = `rpc ${path.slice(path.lastIndexOf('/') + 1)}`;
+    const done = perf.start(name);
+    try {
+      const out = await this.send(path, reqCodec, resCodec, request, opts);
+      done();
+      return out;
+    } catch (e) {
+      perf.failure(name);
+      throw e;
+    }
+  }
+
+  private async send<Req, Res>(
     path: string,
     reqCodec: MessageCodec<Req>,
     resCodec: MessageCodec<Res>,
@@ -264,22 +272,14 @@ export class GrpcWebClient {
     if (opts.timeoutMs) {
       headers['grpc-timeout'] = `${Math.ceil(opts.timeoutMs)}m`;
     }
-    const resp = await post(
-      `${this.origin}/grpc${path}`,
-      frame(payload),
-      headers,
-      opts,
-    );
+    const resp = await post(`${this.origin}/grpc${path}`, frame(payload), headers, opts);
     const {messages, trailers} = decodeFrames(resp.bytes);
     const status = statusFrom(trailers, resp.headers);
     if (status && status.code !== GrpcStatus.OK) {
       throw new GrpcError(status.code, status.message);
     }
     if (!status) {
-      throw new GrpcError(
-        GrpcStatus.INTERNAL,
-        'gRPC-Web: risposta senza grpc-status',
-      );
+      throw new GrpcError(GrpcStatus.INTERNAL, 'gRPC-Web: risposta senza grpc-status');
     }
     return messages.map(m => resCodec.decode(m));
   }
@@ -296,10 +296,7 @@ export class GrpcWebClient {
       ...opts,
     });
     if (out.length !== 1) {
-      throw new GrpcError(
-        GrpcStatus.INTERNAL,
-        `gRPC-Web: attesi 1 messaggio, ricevuti ${out.length}`,
-      );
+      throw new GrpcError(GrpcStatus.INTERNAL, `gRPC-Web: attesi 1 messaggio, ricevuti ${out.length}`);
     }
     return out[0];
   }

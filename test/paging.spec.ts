@@ -1,8 +1,4 @@
-import {
-  HOME_ROW_MAX_ITEMS,
-  shouldLoadMore,
-  showsMoreSlot,
-} from '../src/core/paging';
+import {HOME_ROW_MAX_ITEMS, shouldLoadMore, showsMoreSlot} from '../src/core/paging';
 
 describe('paging', () => {
   const s = {count: 20, hasMore: true, loading: false, failed: false};
@@ -22,9 +18,7 @@ describe('paging', () => {
   it('home rows stop at the cap; the last page ends the row', () => {
     const full = {...s, count: HOME_ROW_MAX_ITEMS};
     expect(showsMoreSlot(full, HOME_ROW_MAX_ITEMS)).toBe(false);
-    expect(
-      shouldLoadMore(full, HOME_ROW_MAX_ITEMS - 1, HOME_ROW_MAX_ITEMS),
-    ).toBe(false);
+    expect(shouldLoadMore(full, HOME_ROW_MAX_ITEMS - 1, HOME_ROW_MAX_ITEMS)).toBe(false);
     expect(showsMoreSlot({...s, hasMore: false})).toBe(false);
   });
 });

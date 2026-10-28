@@ -47,6 +47,7 @@ npm run build:release         # .vpkg files in build/<arch>-release/
 | `node scripts/gen-gradients.mjs` | Regenerates the gradient ramps (`src/gradients/png`, `assets.ts`) from `src/gradients/defs.json` |
 | `scripts/sync-proto.sh <pileus checkout>` | Copies the protos from the main repository and regenerates `src/gen` |
 | `scripts/deploy.sh <device-ip:port>` | Release build, then an in-place **upgrade** on a developer-mode device that keeps the app's data (`vega run-app` uninstalls first, which wipes the session) |
+| `scripts/perf-log.sh <device-ip:port>` | Streams the profiling summaries (`src/core/perf.ts`): gRPC round trips, D-pad step → focus, hero image loads, Play → first frame, late JS frames per screen, Hermes heap |
 
 ## Layout
 

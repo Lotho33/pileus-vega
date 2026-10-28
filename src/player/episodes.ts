@@ -41,7 +41,7 @@ export const ROLL_FORWARD_START_SEC = 31;
  */
 export function episodesOf(r: BrowseResponse): EpisodeEntry[] {
   if (r.episodes.length) {
-    return r.episodes.map((e) => ({
+    return r.episodes.map(e => ({
       id: e.id,
       title: e.title,
       thumb: e.thumbnailUrl,
@@ -50,8 +50,8 @@ export function episodesOf(r: BrowseResponse): EpisodeEntry[] {
     }));
   }
   return r.items
-    .filter((i) => !i.isDir)
-    .map((i) => ({
+    .filter(i => !i.isDir)
+    .map(i => ({
       id: i.id,
       title: i.title,
       thumb: i.posterUrl,
@@ -61,12 +61,9 @@ export function episodesOf(r: BrowseResponse): EpisodeEntry[] {
 }
 
 export const hasNextEpisode = (n?: EpisodeNav) =>
-  !!n &&
-  n.index >= 0 &&
-  (n.index + 1 < n.episodes.length || n.seasonIndex + 1 < n.seasonIds.length);
+  !!n && n.index >= 0 && (n.index + 1 < n.episodes.length || n.seasonIndex + 1 < n.seasonIds.length);
 
-export const hasPrevEpisode = (n?: EpisodeNav) =>
-  !!n && n.index >= 0 && (n.index > 0 || n.seasonIndex > 0);
+export const hasPrevEpisode = (n?: EpisodeNav) => !!n && n.index >= 0 && (n.index > 0 || n.seasonIndex > 0);
 
 /** The next one in this same season (no browse needed), if any. */
 export const sameSeasonNext = (n?: EpisodeNav): EpisodeEntry | undefined =>
@@ -77,11 +74,7 @@ export const sameSeasonNext = (n?: EpisodeNav): EpisodeEntry | undefined =>
  * previous season's last episode or the next season's first one. null when
  * there's nothing there.
  */
-export async function stepEpisode(
-  pluginId: string,
-  nav: EpisodeNav,
-  wanted: number,
-): Promise<EpisodeNav | null> {
+export async function stepEpisode(pluginId: string, nav: EpisodeNav, wanted: number): Promise<EpisodeNav | null> {
   if (wanted >= 0 && wanted < nav.episodes.length) {
     return {...nav, index: wanted};
   }
@@ -89,9 +82,7 @@ export async function stepEpisode(
   if (seasonIndex < 0 || seasonIndex >= nav.seasonIds.length) {
     return null;
   }
-  const episodes = episodesOf(
-    await mycelium.browse(pluginId, nav.seasonIds[seasonIndex]),
-  );
+  const episodes = episodesOf(await mycelium.browse(pluginId, nav.seasonIds[seasonIndex]));
   if (!episodes.length) {
     return null;
   }
@@ -104,12 +95,9 @@ export async function stepEpisode(
 }
 
 /** The source labelled `label` (case-insensitive), else the first one. */
-export function pickSourceByLabel(
-  sources: StreamSource[],
-  label: string,
-): StreamSource | undefined {
+export function pickSourceByLabel(sources: StreamSource[], label: string): StreamSource | undefined {
   const l = label.toLowerCase();
-  return (l && sources.find((s) => s.label.toLowerCase() === l)) || sources[0];
+  return (l && sources.find(s => s.label.toLowerCase() === l)) || sources[0];
 }
 
 /** The episode has no source: the player opens its page instead. */
@@ -178,20 +166,11 @@ export class EpisodePrefetcher {
   private gen = 0;
   private cached: PrefetchedEpisode | null = null;
 
-  maybeStart(
-    pluginId: string,
-    position: number,
-    duration: number,
-    next: EpisodeEntry | undefined,
-    label: string,
-  ) {
+  maybeStart(pluginId: string, position: number, duration: number, next: EpisodeEntry | undefined, label: string) {
     if (this.busy || !next || this.cached?.mediaId === next.id) {
       return;
     }
-    if (
-      duration <= MIN_DURATION_FOR_END_LOGIC_SEC ||
-      position / duration < PREFETCH_THRESHOLD
-    ) {
+    if (duration <= MIN_DURATION_FOR_END_LOGIC_SEC || position / duration < PREFETCH_THRESHOLD) {
       return;
     }
     this.run(pluginId, next.id, label);
@@ -232,11 +211,7 @@ export class EpisodePrefetcher {
   /** The prefetched episode `mediaId`, if it's there and still fresh. */
   take(mediaId: string): PrefetchedEpisode | null {
     const c = this.cached;
-    if (
-      !c ||
-      c.mediaId !== mediaId ||
-      Date.now() - c.at > PREFETCH_MAX_AGE_MS
-    ) {
+    if (!c || c.mediaId !== mediaId || Date.now() - c.at > PREFETCH_MAX_AGE_MS) {
       return null;
     }
     this.cached = null;
@@ -251,9 +226,7 @@ export class EpisodePrefetcher {
 }
 
 export function episodeTitle(ep: EpisodeEntry, show: string): string {
-  return (
-    ep.title || (ep.episodeNumber > 0 ? `Episodio ${ep.episodeNumber}` : show)
-  );
+  return ep.title || (ep.episodeNumber > 0 ? `Episodio ${ep.episodeNumber}` : show);
 }
 
 /**
@@ -261,16 +234,9 @@ export function episodeTitle(ep: EpisodeEntry, show: string): string {
  * with the label playing now, so resuming it keeps the language. Falls back
  * to the bare episode id.
  */
-export async function streamIdForNext(
-  pluginId: string,
-  next: EpisodeEntry,
-  label: string,
-): Promise<string> {
+export async function streamIdForNext(pluginId: string, next: EpisodeEntry, label: string): Promise<string> {
   try {
-    return (
-      pickSourceByLabel(await mycelium.getStreams(pluginId, next.id), label)
-        ?.id || next.id
-    );
+    return pickSourceByLabel(await mycelium.getStreams(pluginId, next.id), label)?.id || next.id;
   } catch {
     return next.id;
   }
@@ -283,9 +249,7 @@ export async function streamIdForNext(
  * (CW only stores the stream id), so the next episode keeps the language.
  * null when it can't be placed.
  */
-export async function loadEpisodeNav(
-  req: PlayRequest,
-): Promise<{nav: EpisodeNav; sourceLabel: string} | null> {
+export async function loadEpisodeNav(req: PlayRequest): Promise<{nav: EpisodeNav; sourceLabel: string} | null> {
   if (req.isLive || req.nav || !req.parentId || req.episodeNumber <= 0) {
     return null;
   }
@@ -295,14 +259,12 @@ export async function loadEpisodeNav(
   let seasonIndex: number;
   let episodes: EpisodeEntry[];
   if (seasons.length) {
-    seasonIds = seasons.map((s) => s.directoryId);
+    seasonIds = seasons.map(s => s.directoryId);
     seasonIndex = Math.max(
       0,
-      seasons.findIndex((s) => s.number === req.seasonNumber),
+      seasons.findIndex(s => s.number === req.seasonNumber),
     );
-    episodes = episodesOf(
-      await mycelium.browse(req.pluginId, seasonIds[seasonIndex]),
-    );
+    episodes = episodesOf(await mycelium.browse(req.pluginId, seasonIds[seasonIndex]));
   } else {
     // A flat list straight off the parent.
     seasonIds = [];
@@ -310,11 +272,9 @@ export async function loadEpisodeNav(
     episodes = episodesOf(await mycelium.browse(req.pluginId, req.parentId));
   }
   const index = episodes.findIndex(
-    (e) =>
+    e =>
       e.episodeNumber === req.episodeNumber &&
-      (!e.seasonNumber ||
-        !req.seasonNumber ||
-        e.seasonNumber === req.seasonNumber),
+      (!e.seasonNumber || !req.seasonNumber || e.seasonNumber === req.seasonNumber),
   );
   if (index < 0) {
     return null;
@@ -322,17 +282,13 @@ export async function loadEpisodeNav(
   let sourceLabel = req.sourceLabel;
   if (!sourceLabel && episodes[index].id !== req.streamId) {
     try {
-      const sources = await mycelium.getStreams(
-        req.pluginId,
-        episodes[index].id,
-      );
-      sourceLabel = sources.find((s) => s.id === req.streamId)?.label ?? '';
+      const sources = await mycelium.getStreams(req.pluginId, episodes[index].id);
+      sourceLabel = sources.find(s => s.id === req.streamId)?.label ?? '';
     } catch {
       // Best effort: the next episode then plays its first source.
     }
   }
-  const seriesPoster =
-    details.item?.extra?.cover_url || details.item?.posterUrl || '';
+  const seriesPoster = details.item?.extra?.cover_url || details.item?.posterUrl || '';
   return {
     nav: {episodes, index, seasonIds, seasonIndex, seriesPoster},
     sourceLabel,
@@ -393,11 +349,8 @@ export function parseSkipTimes(json: string | undefined): SkipInterval[] {
  * The interval covering `pos`, ending a second early so the button doesn't
  * flash on for the last tick only to come back on the next one.
  */
-export function activeSkip(
-  intervals: SkipInterval[],
-  pos: number,
-): SkipInterval | null {
-  return intervals.find((i) => pos >= i.start && pos < i.end - 1) ?? null;
+export function activeSkip(intervals: SkipInterval[], pos: number): SkipInterval | null {
+  return intervals.find(i => pos >= i.start && pos < i.end - 1) ?? null;
 }
 
 /**
@@ -420,10 +373,7 @@ export function nextEpisodeTick(
     return {bannerSecs: null, advance: true};
   }
   const ed = activeSkip(skips, pos);
-  const outroLeft =
-    ed?.type === 'ed'
-      ? Math.max(0, Math.ceil(OUTRO_COUNTDOWN_SEC - (pos - ed.start)))
-      : null;
+  const outroLeft = ed?.type === 'ed' ? Math.max(0, Math.ceil(OUTRO_COUNTDOWN_SEC - (pos - ed.start))) : null;
   if (outroLeft === 0 && !dismissed) {
     return {bannerSecs: null, advance: true};
   }

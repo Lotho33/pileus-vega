@@ -5,33 +5,20 @@
 // cards; live rows stay on their first page (refreshed every minute).
 
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {
-  ActivityIndicator,
-  AppState,
-  Image,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import {ActivityIndicator, AppState, Image, StyleSheet, Text, View} from 'react-native';
 import {useTVEventHandler} from '@amazon-devices/react-native-kepler';
 import {mycelium} from '../core/api';
 import {HOME_ROW_MAX_ITEMS, showsMoreSlot} from '../core/paging';
+import * as perf from '../core/perf';
 import {scheduleWarm} from '../core/warm';
 import {useFocusGate} from '../core/focus';
 import type {CatalogDef, ContinueWatchingItem, PluginInfo} from '../gen/media';
 import {colors, scaledStyles} from '../theme';
 import {CarouselRow, FocusRequest} from './CarouselRow';
 import {cachedCwHero, fetchCwHero} from './cwHero';
-import {Hero, heroImageUrls} from './Hero';
+import {createHeroStore, HeroFromStore, heroImageUrls} from './Hero';
 import type {HomeLayout} from './layout';
-import {
-  CardModel,
-  CardVariant,
-  catalogCard,
-  cwCard,
-  HeroItem,
-  variantFor,
-} from './model';
+import {CardModel, CardVariant, catalogCard, cwCard, variantFor} from './model';
 import {SectionHeader} from './SectionHeader';
 
 interface CatalogState {
@@ -46,10 +33,7 @@ interface CatalogState {
   moreFailed: boolean;
 }
 
-const firstPage = (
-  cards: CardModel[],
-  extra: Partial<CatalogState> = {},
-): CatalogState => ({
+const firstPage = (cards: CardModel[], extra: Partial<CatalogState> = {}): CatalogState => ({
   cards,
   loading: false,
   failed: false,
@@ -74,6 +58,9 @@ const LIVE_REFRESH_MS = 60_000;
 // logo fade in on their own once decoded (meta_zone.dart /
 // HomeHeroBackground), so the text never waits for the images.
 const HERO_DEBOUNCE_MS = 120;
+// With ←/→ held the hero waits for the release; this long without a new card
+// counts as released too.
+const HOLD_SETTLE_FALLBACK_MS = 400;
 
 export function PluginHome({
   plugin,
@@ -134,12 +121,10 @@ export function PluginHome({
     return out;
   }, [catalogs, cwCards.length, state]);
 
-  const [rowId, setRowId] = useState<string>(() =>
-    cwCards.length ? 'cw' : catalogs[0]?.id ?? '',
-  );
+  const [rowId, setRowId] = useState<string>(() => (cwCards.length ? 'cw' : catalogs[0]?.id ?? ''));
   const rowIndex = Math.max(
     0,
-    rows.findIndex((r) => r.id === rowId),
+    rows.findIndex(r => r.id === rowId),
   );
   const row = rows[rowIndex];
 
@@ -148,20 +133,20 @@ export function PluginHome({
       if (stateRef.current[def.id]?.loading) {
         return;
       }
-      setState((s) => ({...s, [def.id]: firstPage([], {loading: true})}));
+      setState(s => ({...s, [def.id]: firstPage([], {loading: true})}));
       try {
         const r = await mycelium.getCatalog(plugin.pluginId, def.id, 1);
         const variant = variantFor(def);
         const seen = new Set<string>();
         const cards = r.items
-          .map((i) => catalogCard(plugin.pluginId, i, variant))
-          .filter((c) => !seen.has(c.key) && !!seen.add(c.key));
-        setState((s) => ({
+          .map(i => catalogCard(plugin.pluginId, i, variant))
+          .filter(c => !seen.has(c.key) && !!seen.add(c.key));
+        setState(s => ({
           ...s,
           [def.id]: firstPage(cards, {hasMore: r.hasMore}),
         }));
       } catch {
-        setState((s) => ({...s, [def.id]: firstPage([], {failed: true})}));
+        setState(s => ({...s, [def.id]: firstPage([], {failed: true})}));
       }
     },
     [plugin.pluginId],
@@ -173,33 +158,26 @@ export function PluginHome({
   const loadMore = useCallback(
     async (def: CatalogDef) => {
       const cur = stateRef.current[def.id];
-      if (
-        !cur ||
-        cur.loading ||
-        !cur.hasMore ||
-        moreInFlight.current.has(def.id)
-      ) {
+      if (!cur || cur.loading || !cur.hasMore || moreInFlight.current.has(def.id)) {
         return;
       }
       moreInFlight.current.add(def.id);
       const page = cur.page + 1;
       // Only onto the list this page follows (not one reloaded meanwhile).
       const update = (f: (c: CatalogState) => CatalogState) =>
-        setState((s) => {
+        setState(s => {
           const c = s[def.id];
-          return c && c.page === cur.page && !c.loading
-            ? {...s, [def.id]: f(c)}
-            : s;
+          return c && c.page === cur.page && !c.loading ? {...s, [def.id]: f(c)} : s;
         });
-      update((c) => ({...c, loadingMore: true, moreFailed: false}));
+      update(c => ({...c, loadingMore: true, moreFailed: false}));
       try {
         const r = await mycelium.getCatalog(plugin.pluginId, def.id, page);
         const variant = variantFor(def);
-        update((c) => {
-          const seen = new Set(c.cards.map((x) => x.key));
+        update(c => {
+          const seen = new Set(c.cards.map(x => x.key));
           const more = r.items
-            .map((i) => catalogCard(plugin.pluginId, i, variant))
-            .filter((x) => !seen.has(x.key) && !!seen.add(x.key));
+            .map(i => catalogCard(plugin.pluginId, i, variant))
+            .filter(x => !seen.has(x.key) && !!seen.add(x.key));
           return {
             ...c,
             cards: [...c.cards, ...more],
@@ -210,7 +188,7 @@ export function PluginHome({
           };
         });
       } catch {
-        update((c) => ({...c, loadingMore: false, moreFailed: true}));
+        update(c => ({...c, loadingMore: false, moreFailed: true}));
       } finally {
         moreInFlight.current.delete(def.id);
       }
@@ -222,7 +200,7 @@ export function PluginHome({
   // (live_rows_refresher.dart): events go on air, start times move. Cards
   // already shown stay until the new page lands; a failure keeps them.
   useEffect(() => {
-    const live = catalogs.filter((c) => c.type === 'live');
+    const live = catalogs.filter(c => c.type === 'live');
     if (inactive || !live.length) {
       return;
     }
@@ -241,12 +219,12 @@ export function PluginHome({
           const variant = variantFor(def);
           const seen = new Set<string>();
           const fresh = r.items
-            .map((i) => catalogCard(plugin.pluginId, i, variant))
-            .filter((c) => !seen.has(c.key) && !!seen.add(c.key));
+            .map(i => catalogCard(plugin.pluginId, i, variant))
+            .filter(c => !seen.has(c.key) && !!seen.add(c.key));
           // An emptied row would drop out from under the focus: leave it for
           // the next full load instead.
           if (fresh.length) {
-            setState((st) => ({
+            setState(st => ({
               ...st,
               [def.id]: firstPage(fresh, {hasMore: r.hasMore}),
             }));
@@ -278,19 +256,15 @@ export function PluginHome({
 
   const activeDefId = row?.def?.id;
   const cards = useMemo(
-    () =>
-      row?.id === 'cw'
-        ? cwCards
-        : activeDefId
-        ? state[activeDefId]?.cards ?? NO_CARDS
-        : NO_CARDS,
+    () => (row?.id === 'cw' ? cwCards : activeDefId ? state[activeDefId]?.cards ?? NO_CARDS : NO_CARDS),
     [row?.id, cwCards, activeDefId, state],
   );
   const rowState = row?.def ? state[row.def.id] : undefined;
 
   // Hero follows the focused card, debounced so holding → doesn't decode
   // every fanart on the way.
-  const [hero, setHero] = useState<HeroItem | null>(null);
+  const heroStore = useRef(createHeroStore()).current;
+  const setHero = heroStore.set;
   const heroTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const focusedIndex = useRef(0);
 
@@ -302,18 +276,19 @@ export function PluginHome({
     const entry = card.open.cw;
     setHero((entry && cachedCwHero(entry)) || card.hero);
     if (entry && !cachedCwHero(entry)) {
-      fetchCwHero(entry, card.hero).then((h) => {
+      fetchCwHero(entry, card.hero).then(h => {
         if (h && heroCard.current === card.key) {
           setHero(h);
         }
       });
     }
-  }, []);
+  }, [setHero]);
 
   const firstHero = useRef(false);
   useEffect(() => {
     if (!firstHero.current && cards.length) {
       firstHero.current = true;
+      perf.homeShown();
       commitHero(cards[0]);
     }
   }, [cards, commitHero]);
@@ -337,32 +312,46 @@ export function PluginHome({
     }
   }, [inactive]);
 
+  const showHero = useCallback(
+    (card: CardModel | undefined, delay: number) => {
+      if (heroTimer.current) {
+        clearTimeout(heroTimer.current);
+      }
+      if (!card) {
+        return;
+      }
+      // Start the downloads now, so they're under way by the time the hero
+      // swaps.
+      heroImageUrls(card.hero, L).forEach(u => Image.prefetch(u).catch(() => false));
+      heroTimer.current = setTimeout(() => commitHero(card), delay);
+    },
+    [commitHero, L],
+  );
+
   const onFocusCard = useCallback(
-    (index: number) => {
+    (index: number, held: boolean) => {
       focusedIndex.current = index;
       const card = cards[index];
       cancelWarm.current();
       const entry = card?.open.cw;
-      cancelWarm.current = entry
-        ? scheduleWarm(entry.pluginId, entry.mediaId)
-        : () => {};
-      if (heroTimer.current) {
-        clearTimeout(heroTimer.current);
+      cancelWarm.current = entry ? scheduleWarm(entry.pluginId, entry.mediaId) : () => {};
+      if (held) {
+        // Passing over cards with ←/→ held: no downloads and no hero swap for
+        // each of them (they piled up, and the card you stopped on waited
+        // behind all of them). The row reports the release (onSettle); this
+        // is only the fallback if that never comes.
+        if (heroTimer.current) {
+          clearTimeout(heroTimer.current);
+        }
+        heroTimer.current = setTimeout(() => card && showHero(card, 0), HOLD_SETTLE_FALLBACK_MS);
+        return;
       }
-      // Start the downloads now, so they're under way by the time the hero
-      // swaps.
-      if (card) {
-        heroImageUrls(card.hero, L).forEach((u) =>
-          Image.prefetch(u).catch(() => false),
-        );
-      }
-      heroTimer.current = setTimeout(
-        () => card && commitHero(card),
-        HERO_DEBOUNCE_MS,
-      );
+      showHero(card, HERO_DEBOUNCE_MS);
     },
-    [cards, commitHero, L],
+    [cards, showHero],
   );
+
+  const onSettle = useCallback((index: number) => showHero(cards[index], 0), [cards, showHero]);
 
   const switchRow = useCallback(
     (delta: number) => {
@@ -389,10 +378,7 @@ export function PluginHome({
   // and when a panel closes, the native engine's own pick lands first.
   const gate = useFocusGate(inactive);
   const suppressUntil = useRef(0);
-  const isInactive = useCallback(
-    () => gate() || Date.now() < suppressUntil.current,
-    [gate],
-  );
+  const isInactive = useCallback(() => gate() || Date.now() < suppressUntil.current, [gate]);
   const suppress = () => {
     suppressUntil.current = Date.now() + 250;
   };
@@ -400,7 +386,7 @@ export function PluginHome({
   // A held ← only steps back through the row and stops on the first card;
   // only a fresh press there opens the nav (card_carousel_block_view.dart).
   const leftHeld = useRef(false);
-  useTVEventHandler((evt) => {
+  useTVEventHandler(evt => {
     if (evt.eventType === 'left') {
       const repeat = leftHeld.current && evt.eventKeyAction !== 1;
       leftHeld.current = evt.eventKeyAction !== 1;
@@ -448,15 +434,8 @@ export function PluginHome({
 
   return (
     <View style={StyleSheet.absoluteFill}>
-      <Hero item={hero} L={L} />
-      {row ? (
-        <SectionHeader
-          title={row.title}
-          active={rowIndex}
-          total={rows.length}
-          L={L}
-        />
-      ) : null}
+      <HeroFromStore store={heroStore} L={L} />
+      {row ? <SectionHeader title={row.title} active={rowIndex} total={rows.length} L={L} /> : null}
       <View style={[styles.strip, {top: L.carouselTop + L.headerH}]}>
         {cards.length ? (
           <CarouselRow
@@ -469,8 +448,9 @@ export function PluginHome({
             focusRequest={focusRequest}
             highlightFirst={navOpen}
             onFocusCard={onFocusCard}
-            onPressCard={(i) => cards[i] && onOpenItem(cards[i])}
-            onLongPressCard={(i) => cards[i] && onCardMenu(cards[i], row?.def)}
+            onSettle={onSettle}
+            onPressCard={i => cards[i] && onOpenItem(cards[i])}
+            onLongPressCard={i => cards[i] && onCardMenu(cards[i], row?.def)}
             loadMore={
               row?.def &&
               row.def.type !== 'live' &&
@@ -493,18 +473,11 @@ export function PluginHome({
             }
           />
         ) : rowState?.failed ? (
-          <Text style={styles.message}>
-            Impossibile caricare questa sezione.
-          </Text>
-        ) : rows.length === 0 &&
-          Object.keys(state).length >= catalogs.length ? (
+          <Text style={styles.message}>Impossibile caricare questa sezione.</Text>
+        ) : rows.length === 0 && Object.keys(state).length >= catalogs.length ? (
           <Text style={styles.message}>Nessun contenuto disponibile.</Text>
         ) : (
-          <ActivityIndicator
-            size="large"
-            color={colors.primary}
-            style={styles.spinner}
-          />
+          <ActivityIndicator size="large" color={colors.primary} style={styles.spinner} />
         )}
       </View>
     </View>

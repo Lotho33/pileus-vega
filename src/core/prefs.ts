@@ -173,11 +173,13 @@ export function parseSubtitleStyle(json: string): SubtitleStyle {
     s = {};
   }
   const num = (v: unknown, d: number) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+  // Whole pixels: the Flutter phone/desktop apps set these with a continuous
+  // slider and store whatever it lands on (24.666…), which read as such here.
   return {
-    fontSize: num(s.fontSize, SUBTITLE_DEFAULTS.fontSize),
+    fontSize: Math.round(num(s.fontSize, SUBTITLE_DEFAULTS.fontSize)),
     colorArgb: num(s.colorArgb, SUBTITLE_DEFAULTS.colorArgb) >>> 0,
     bgEnabled: typeof s.bgEnabled === 'boolean' ? s.bgEnabled : SUBTITLE_DEFAULTS.bgEnabled,
-    bottomPadding: num(s.bottomPadding, SUBTITLE_DEFAULTS.bottomPadding),
+    bottomPadding: Math.round(num(s.bottomPadding, SUBTITLE_DEFAULTS.bottomPadding)),
   };
 }
 
