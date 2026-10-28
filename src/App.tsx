@@ -1,0 +1,43 @@
+import React from 'react';
+import {ActivityIndicator, View} from 'react-native';
+import {AuthProvider, useAuth} from './state/auth';
+import {ConnectScreen} from './screens/ConnectScreen';
+import {HomeScreen} from './screens/HomeScreen';
+import {PairingScreen} from './screens/PairingScreen';
+import {ProfilesScreen} from './screens/ProfilesScreen';
+import {colors, scaledStyles} from './theme';
+
+function Root() {
+  const {phase} = useAuth();
+  switch (phase) {
+    case 'booting':
+      return (
+        <View style={styles.boot}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      );
+    case 'connect':
+      return <ConnectScreen />;
+    case 'pairing':
+      return <PairingScreen />;
+    case 'profiles':
+      return <ProfilesScreen />;
+    case 'home':
+      return <HomeScreen />;
+  }
+}
+
+export const App = () => (
+  <AuthProvider>
+    <Root />
+  </AuthProvider>
+);
+
+const styles = scaledStyles({
+  boot: {
+    flex: 1,
+    backgroundColor: colors.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
