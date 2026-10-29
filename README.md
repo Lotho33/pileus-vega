@@ -1,5 +1,7 @@
 # Pileus for Vega OS
 
+**Version 1.0.0** · Vega OS 1.2+ · armv7 · package `com.lotho33.pileus`
+
 **Pileus for Vega OS** is the [Pileus](https://github.com/Lotho33/pileus)
 client for Amazon Fire TV devices running **Vega OS**, built with React Native
 for Vega. It talks to a self-hosted [Mycelium](https://github.com/Lotho33/mycelium)
