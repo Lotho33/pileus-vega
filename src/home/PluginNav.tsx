@@ -5,6 +5,7 @@
 import React, {forwardRef, memo, useEffect, useRef, useState} from 'react';
 import {Pressable, Text, View} from 'react-native';
 import {TVFocusGuideView} from '@amazon-devices/react-native-kepler';
+import AsyncStorage from '@amazon-devices/react-native-async-storage__async-storage';
 import {SvgXml} from '@amazon-devices/react-native-svg';
 import {ICON_ASPECT, ICON_SVG, WORDMARK_ASPECT, WORDMARK_SVG} from '../assets/branding';
 import {Gradient} from '../components/Gradient';
@@ -16,38 +17,78 @@ import {monochromeSvg} from '../core/svgMono';
 import {colors, scaledStyles} from '../theme';
 import type {HomeLayout} from './layout';
 
-// Session cache of /plugin-icon/{id} bodies; '' = server has none.
+// /plugin-icon/{id} bodies, already monochrome; '' = server has none. Kept
+// on disk too: fetched on every launch, the icons popped in a moment after
+// the nav. The disk copy is read as soon as this module loads (the app's
+// start), shown first, and checked against the server once per session.
+const ICON_KEY = 'pileus.pluginIcons.v1';
 const iconCache = new Map<string, string>();
+const diskReady: Promise<void> = AsyncStorage.getItem(ICON_KEY)
+  .then(raw => {
+    const saved = raw ? (JSON.parse(raw) as Record<string, string>) : {};
+    for (const [id, xml] of Object.entries(saved)) {
+      if (!iconCache.has(id) && typeof xml === 'string') {
+        iconCache.set(id, xml);
+      }
+    }
+  })
+  .catch(() => {});
+const checked = new Set<string>();
 
-const PluginIcon = memo(function PluginIcon({
-  pluginId,
-  size,
-  color,
-}: {
-  pluginId: string;
-  size: number;
-  color: string;
-}) {
+function saveIcons() {
+  AsyncStorage.setItem(ICON_KEY, JSON.stringify(Object.fromEntries(iconCache))).catch(() => {});
+}
+
+/** The server's icon: its body, '' when it has none, null when unreachable. */
+async function fetchIcon(pluginId: string): Promise<string | null> {
+  try {
+    const r = await fetch(`${mycelium.origin}/plugin-icon/${encodeURIComponent(pluginId)}`);
+    if (r.status === 404) {
+      return '';
+    }
+    if (!r.ok) {
+      return null;
+    }
+    const body = await r.text();
+    return body.includes('<svg') ? monochromeSvg(body) : '';
+  } catch {
+    return null;
+  }
+}
+
+const PluginIcon = memo(function PluginIcon({pluginId, size, color}: {pluginId: string; size: number; color: string}) {
   const [xml, setXml] = useState(iconCache.get(pluginId));
   useEffect(() => {
-    if (xml !== undefined) {
-      return;
-    }
     let alive = true;
-    fetch(`${mycelium.origin}/plugin-icon/${encodeURIComponent(pluginId)}`)
-      .then(r => (r.ok ? r.text() : ''))
-      .catch(() => '')
-      .then(body => {
-        const v = body.includes('<svg') ? monochromeSvg(body) : '';
-        iconCache.set(pluginId, v);
-        if (alive) {
-          setXml(v);
+    (async () => {
+      if (!iconCache.has(pluginId)) {
+        await diskReady;
+        if (alive && iconCache.has(pluginId)) {
+          setXml(iconCache.get(pluginId));
         }
-      });
+      }
+      if (checked.has(pluginId)) {
+        return;
+      }
+      checked.add(pluginId);
+      const fresh = await fetchIcon(pluginId);
+      if (fresh === null) {
+        // Unreachable: keep what we have, try again next time.
+        checked.delete(pluginId);
+        return;
+      }
+      if (iconCache.get(pluginId) !== fresh) {
+        iconCache.set(pluginId, fresh);
+        saveIcons();
+      }
+      if (alive) {
+        setXml(fresh);
+      }
+    })();
     return () => {
       alive = false;
     };
-  }, [pluginId, xml]);
+  }, [pluginId]);
 
   if (xml) {
     return <SvgXml xml={xml} width={size} height={size} color={color} />;
@@ -116,12 +157,7 @@ export function PluginNav({
   const toAction = useRef(!!focusAction).current;
   useEffect(() => focusSoon(() => (toAction ? actionRef.current : pluginRef.current)), [toAction]);
   return (
-    <TVFocusGuideView
-      style={[styles.root, {width: L.navW}]}
-      trapFocusLeft
-      trapFocusRight
-      trapFocusUp
-      trapFocusDown>
+    <TVFocusGuideView style={[styles.root, {width: L.navW}]} trapFocusLeft trapFocusRight trapFocusUp trapFocusDown>
       <Gradient name="navPanel" direction="toRight" />
       <View style={[styles.brand, {marginTop: L.H * (48 / 1080), marginBottom: L.H * (16 / 1080)}]}>
         <SvgXml xml={ICON_SVG} height={logoH} width={logoH * ICON_ASPECT} color={colors.textHigh} />

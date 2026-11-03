@@ -7,7 +7,7 @@
 import {languageBadge} from '../core/language';
 import React, {forwardRef, memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
-import {useKeplerBackHandler} from '@amazon-devices/react-native-kepler';
+import {TVFocusGuideView, useKeplerBackHandler, useTVEventHandler} from '@amazon-devices/react-native-kepler';
 import {Icon} from '../components/Icon';
 import {mycelium} from '../core/api';
 import {focusSoon, useFocusGate} from '../core/focus';
@@ -42,6 +42,8 @@ import {episodeWindow, fmtAirDate, fmtStatus, relatedLists, seasonLabel} from '.
 import {RelatedRow} from './RelatedRow';
 
 const PAGE = 5;
+/** A ↓/→ this soon after an episode got focus is the press that moved it. */
+const ENTRY_KEY_MS = 150;
 const SeasonPill = memo(
   forwardRef<View, {label: string; selected: boolean; s: number; onPress: () => void}>(function SeasonPill(
     {label, selected, s, onPress},
@@ -70,11 +72,19 @@ const SeasonPill = memo(
 const EpisodeRow = memo(
   forwardRef<
     View,
-    {ep: EpisodeInfo; height: number; s: number; hidden: boolean; onFocus: () => void; onPress: () => void}
+    {
+      ep: EpisodeInfo;
+      height: number;
+      s: number;
+      hidden: boolean;
+      onFocus: () => void;
+      onBlur: () => void;
+      onPress: () => void;
+    }
   >(
     // `hidden`: outside the 5-row window. Still mounted and focusable (the
     // window follows focus), just not drawn, so no row peeks past the clip.
-    function EpisodeRow({ep, height, s, hidden, onFocus, onPress}, ref) {
+    function EpisodeRow({ep, height, s, hidden, onFocus, onBlur, onPress}, ref) {
       const [focused, setFocused] = useState(false);
       const n = ep.episodeNumber > 0 ? ep.episodeNumber : null;
       // This episode's own language versions, when the plugin says.
@@ -90,7 +100,10 @@ const EpisodeRow = memo(
             setFocused(true);
             onFocus();
           }}
-          onBlur={() => setFocused(false)}
+          onBlur={() => {
+            setFocused(false);
+            onBlur();
+          }}
           onPress={onPress}
           style={[styles.ep, {height: height - 6}, rowGap.ep, focused && styles.epFocused, hidden && styles.dimOut]}>
           <Text
@@ -264,6 +277,26 @@ export function SeriesLayout({
 
   const lists = useMemo(() => relatedLists(item.extra), [item.extra]);
   const hasRelated = lists.related.length + lists.similar.length > 0;
+
+  // Into related/similar from the episodes (series_page_layout _moveEpisode):
+  // ↓ off the last episode, or → from any. The native engine never got
+  // there: the episodes past the 5-row window are still laid out below it,
+  // over the footer, so ↓ always found one of them first.
+  const [enterRelated, setEnterRelated] = useState(0);
+  const inEpisodes = useRef(false);
+  const epFocusAt = useRef(0);
+  useTVEventHandler(evt => {
+    if (!hasRelated || !inEpisodes.current || gate() || evt.eventKeyAction === 1) {
+      return;
+    }
+    // The press that just moved focus onto this episode isn't another one.
+    if (Date.now() - epFocusAt.current < ENTRY_KEY_MS) {
+      return;
+    }
+    if (evt.eventType === 'right' || (evt.eventType === 'down' && lastEp.current === episodes.length - 1)) {
+      setEnterRelated(t => t + 1);
+    }
+  });
   const sd = series;
   const season = seasons[seasonIdx];
   const poster = season?.posterUrl || item.posterUrl;
@@ -371,7 +404,11 @@ export function SeriesLayout({
             ) : null}
             {loading ? <ActivityIndicator size="small" color={colors.textLow} /> : null}
           </View>
-          <View style={[styles.window, {height: tileH * PAGE}, loading && styles.dim]}>
+          {/* ↓/→ out of the episodes are handled above (enterRelated). */}
+          <TVFocusGuideView
+            style={[styles.window, {height: tileH * PAGE}, loading && styles.dim]}
+            trapFocusDown={hasRelated}
+            trapFocusRight={hasRelated}>
             {episodes.length ? (
               <View style={{transform: [{translateY: -start * tileH}]}}>
                 {episodes.map((ep, i) => (
@@ -388,7 +425,12 @@ export function SeriesLayout({
                     ep={ep}
                     height={tileH}
                     s={s}
+                    onBlur={() => {
+                      inEpisodes.current = false;
+                    }}
                     onFocus={() => {
+                      inEpisodes.current = true;
+                      epFocusAt.current = Date.now();
                       if (gate()) {
                         return;
                       }
@@ -402,12 +444,21 @@ export function SeriesLayout({
             ) : !loading ? (
               <Text style={[styles.low, {fontSize: 16 * s}]}>Nessun episodio disponibile.</Text>
             ) : null}
-          </View>
+          </TVFocusGuideView>
         </View>
       </View>
       {hasRelated ? (
         <View style={{height: footerH}}>
-          <RelatedRow covered={covered || !!popup || !!download} pluginId={pluginId} lists={lists} L={L} cardH={cardH} hPad={hPad} onOpen={onOpenRelated} refocus={relatedRefocus} />
+          <RelatedRow
+            covered={covered || !!popup || !!download}
+            pluginId={pluginId}
+            lists={lists}
+            L={L}
+            cardH={cardH}
+            hPad={hPad}
+            onOpen={onOpenRelated}
+            refocus={relatedRefocus + enterRelated}
+          />
         </View>
       ) : null}
       {popup ? (

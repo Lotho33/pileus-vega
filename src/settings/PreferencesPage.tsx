@@ -27,7 +27,6 @@ import {
 import {parsePreferredLanguage, PreferredLanguage, writePreferredLanguage} from '../core/language';
 import {useAuth} from '../state/auth';
 import {scaledStyles} from '../theme';
-import {MetricsSection} from './MetricsSection';
 import {Note, Page, Row, SectionHeader, StepperRow} from './ui';
 
 const SAVE_AFTER_MS = 700;
@@ -186,7 +185,6 @@ export function PreferencesPage() {
           <Note text="Valgono per questo dispositivo, dalla prossima riproduzione. ← e → cambiano il valore." />
         </>
       ) : null}
-      <MetricsSection />
     </Page>
   );
 }

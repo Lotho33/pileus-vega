@@ -108,15 +108,17 @@ function heapLine(): string | null {
 }
 
 // ── JS frame monitor ─────────────────────────────────────────────────────
-// A requestAnimationFrame loop: a gap over two frames is a late frame, over
-// 100 ms a stall. Runs only while there's something to report on (it's
+// A FRAME_MS timer loop: a gap over two frames is a late frame, over 100 ms a
+// stall. Not requestAnimationFrame: on Vega it isn't paced by the display
+// and fired ~3300 times a second (50k "frames" per 15 s on the Select), the
+// monitor itself keeping the JS thread busy. Runs only while there's something to report on (it's
 // started by the first sample and keeps going while the app is used).
 
 let running = false;
 let lastFrame = 0;
 let lastActivity = 0;
 let summaryTimer: ReturnType<typeof setInterval> | null = null;
-let frameId: number | null = null;
+let frameId: ReturnType<typeof setTimeout> | null = null;
 
 function onFrame(now: number) {
   if (!running) {
@@ -139,7 +141,7 @@ function onFrame(now: number) {
     j.worst = Math.max(j.worst, gap);
   }
   lastFrame = now;
-  frameId = requestAnimationFrame(onFrame);
+  frameId = setTimeout(() => onFrame(Date.now()), FRAME_MS);
 }
 
 function ensureRunning() {
@@ -149,9 +151,7 @@ function ensureRunning() {
   }
   running = true;
   lastFrame = 0;
-  if (typeof requestAnimationFrame === 'function') {
-    frameId = requestAnimationFrame(onFrame);
-  }
+  frameId = setTimeout(() => onFrame(Date.now()), FRAME_MS);
   summaryTimer = setInterval(() => {
     const lines = summaryLines();
     const heap = heapLine();
@@ -174,8 +174,8 @@ function ensureRunning() {
 
 function stop() {
   running = false;
-  if (frameId !== null && typeof cancelAnimationFrame === 'function') {
-    cancelAnimationFrame(frameId);
+  if (frameId !== null) {
+    clearTimeout(frameId);
   }
   frameId = null;
   if (summaryTimer) {

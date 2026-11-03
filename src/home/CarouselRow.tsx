@@ -12,12 +12,17 @@
 // with the next cell not mounted yet, a held arrow skipped cards or landed
 // at the end of the row. Held, the row steps at a fixed pace (HOLD_STEP_MS)
 // without animating the slide, so steps never queue up behind it.
+//
+// Focus the native engine hands the row by itself is redirected (aimFocus):
+// coming down from a button it picks the card nearest on screen, and when
+// the previous row unmounts it reassigns focus to whatever card sits under
+// the old one — both landed mid-row, and the row then slid there.
 
 import React, {forwardRef, useCallback, useEffect, useRef, useState} from 'react';
 import {ActivityIndicator, FlatList, Pressable, Text, View} from 'react-native';
 import {TVFocusGuideView, useTVEventHandler} from '@amazon-devices/react-native-kepler';
 import {Icon} from '../components/Icon';
-import {focusSoon, requestFocus} from '../core/focus';
+import {focusSoon, requestFocus, SETTLE_MS} from '../core/focus';
 import {shouldLoadMore} from '../core/paging';
 import * as perf from '../core/perf';
 import {LandscapeCard, PosterCard} from './Cards';
@@ -148,19 +153,57 @@ export function CarouselRow(p: Props) {
     [stride],
   );
 
+  // ── Where focus has to land ──────────────────────────────────────────
+  // The card a step or a placement aimed at; with none, focus coming in
+  // from outside goes to the card the row is showing (current, below).
+  const current = useRef(0);
+  const aim = useRef<{index: number; until: number} | null>(null);
+  const lastRedirect = useRef(0);
+  const aimAt = (index: number) => {
+    aim.current = {index, until: Date.now() + AIM_MS};
+  };
+  /** True when focus on `index` was sent on to the right card instead. */
+  const strayFocus = (index: number): boolean => {
+    if (p.isInactive()) {
+      return false;
+    }
+    const a = aim.current;
+    const target = a && Date.now() < a.until ? a.index : current.current;
+    const now = Date.now();
+    // A redirect that didn't take: accept where focus is rather than loop.
+    if (index === target || now - lastRedirect.current < SETTLE_MS || !requestFocus(nodeAt(target))) {
+      aim.current = null;
+      return false;
+    }
+    lastRedirect.current = now;
+    return true;
+  };
+
   const takeFocus = useRef(p.takeFocus).current;
   // Preferred focus only until a card of the row has had focus once.
   const settled = useRef(false);
-  useEffect(() => (takeFocus ? focusSoon(() => refs.current.get(0)) : undefined), [takeFocus]);
+  useEffect(() => {
+    if (!takeFocus) {
+      return;
+    }
+    aimAt(0);
+    return focusSoon(() => refs.current.get(0));
+  }, [takeFocus]);
 
   const req = p.focusRequest;
+  // A request already there when the row mounted was meant for the row it
+  // replaced: after closing details on the second card, ↓ built the next
+  // row with that same request, which pulled focus to its second card while
+  // takeFocus aimed at the first, and the redirects fought over it.
+  const mountToken = useRef(req?.token).current;
   useEffect(() => {
-    if (!req) {
+    if (!req || req.token === mountToken) {
       return;
     }
     const index = Math.max(0, Math.min(req.index, p.cards.length - 1));
     // Scroll first so the card's cell is mounted before focus lands on it.
     slideTo(index, false);
+    aimAt(index);
     return focusSoon(() => refs.current.get(index) ?? refs.current.get(0));
     // Only a new request moves focus, not a reflow of the cards.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -176,6 +219,7 @@ export function CarouselRow(p: Props) {
     if (p.cards.length > old && onTrailing.current) {
       onTrailing.current = false;
       slideTo(old, false);
+      aimAt(old);
       return focusSoon(() => refs.current.get(old));
     }
     // Only a growing list moves anything here.
@@ -195,13 +239,13 @@ export function CarouselRow(p: Props) {
   }, [p.highlightFirst]);
 
   // ── ←/→ ──────────────────────────────────────────────────────────────
-  const current = useRef(0);
   const inRow = useRef(false);
   const holding = useRef<{dir: string; last: number; steps: number} | null>(null);
   const pending = useRef<{index: number; t0: number} | null>(null);
   const nodeAt = (i: number) => (i === p.cards.length ? moreRef.current : refs.current.get(i));
   const stepTo = (target: number, animated: boolean) => {
     slideTo(target, animated);
+    aimAt(target);
     pending.current = {index: target, t0: Date.now()};
     if (!requestFocus(nodeAt(target))) {
       focusSoon(() => nodeAt(target));
@@ -299,6 +343,9 @@ export function CarouselRow(p: Props) {
               highlight={highlight && index === 0}
               captionFs={p.captionFs}
               onFocus={() => {
+                if (strayFocus(index)) {
+                  return;
+                }
                 // Where focus is, always — ←/→ go from here. Only the rest
                 // waits for a panel to be gone: focus handed back while the
                 // nav was closing was dropped here, and → then did nothing.
@@ -331,6 +378,9 @@ export function CarouselRow(p: Props) {
                 height={h}
                 failed={p.loadMore.failed}
                 onFocus={() => {
+                  if (strayFocus(p.cards.length)) {
+                    return;
+                  }
                   focused(p.cards.length);
                   if (p.isInactive()) {
                     return;
@@ -360,6 +410,8 @@ export function CarouselRow(p: Props) {
 }
 
 const VISIBLE = 7;
+/** How long a step or placement keeps its claim on where focus lands. */
+const AIM_MS = 1000;
 
 /** Room the two caption lines take under a poster. */
 export function captionBlock(fs: number): number {

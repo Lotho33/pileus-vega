@@ -140,7 +140,25 @@ export class PlayerEngine {
         });
         this.shaka.addEventListener('trackschanged', () => this.emit('tracks'));
         this.shaka.addEventListener('variantchanged', () => this.emit('tracks'));
-        this.shaka.addEventListener('adaptation', () => this.emit('tracks'));
+        this.shaka.addEventListener('adaptation', () => {
+          this.emit('tracks');
+          // Which variant ABR picked and on what estimate: the quality often
+          // settled below the best one (see quality.ts).
+          try {
+            const st = this.shaka.getStats();
+            // The variants still playable (Shaka drops the ones the device's
+            // decodingInfo turns down), each as height@kbps/codecs.
+            const left = (this.shaka.getVariantTracks?.() ?? [])
+              .map((t: any) => `${t.height}@${Math.round(t.bandwidth / 1000)}k/${t.videoCodec}`)
+              .join(' ');
+            console.log(
+              `[pileus/perf] abr ${st.width}x${st.height} @${Math.round(st.streamBandwidth / 1000)}k ` +
+                `est=${Math.round(st.estimatedBandwidth / 1000)}k variants=[${left}]`,
+            );
+          } catch {
+            // No stats yet.
+          }
+        });
         this.shaka.addEventListener('textchanged', () => this.emit('tracks'));
       }
       const net = this.shaka.getNetworkingEngine();

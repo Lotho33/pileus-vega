@@ -21,6 +21,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@amazon-devices/keplerscript-netmgr-lib": "~2.0.20",
     "@amazon-devices/react-native-async-storage__async-storage": "2.1.9000000000",
     "@amazon-devices/react-native-gesture-handler": "4.0.0",
     "@amazon-devices/react-native-kepler": "~4.0.0",

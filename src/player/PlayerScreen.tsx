@@ -22,7 +22,7 @@
 // Back: closes the panel, then hides the overlay, then leaves (saving the
 // position).
 
-import React, {forwardRef, useCallback, useEffect, useRef, useState} from 'react';
+import React, {forwardRef, memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -392,7 +392,10 @@ export function PlayerScreen({
           e.on('waiting', () => setBuffering(true));
           e.on('tracks', () => {
             const want = audioPref.pick(e.audioTracks());
-            if (want) {
+            // Only when it isn't on already: 'tracks' also fires on every
+            // quality switch, and Shaka's selectAudioTrack re-picks the
+            // variant, which right after load dropped 1080p to 720p.
+            if (want && !want.active) {
               e.selectAudio(want.id);
             }
             setAudio(e.audioTracks());
@@ -1088,6 +1091,30 @@ export function PlayerScreen({
   const selectable = panelItems.filter(i => !i.heading);
   const firstKey = (selectable.find(i => i.active) ?? selectable[0])?.key;
   const box = surfaceBox(viewMode, W, H, videoSize.w, videoSize.h);
+  const surfaceStyle = useMemo(
+    () => [styles.surface, box],
+    // box is rebuilt on every render; its inputs are what matter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [viewMode, W, H, videoSize.w, videoSize.h],
+  );
+  const onSurfaceCreated = useCallback((h: string) => {
+    surfaceHandle.current = h;
+    if (engine.current) {
+      engine.current.setSurface(h);
+    } else {
+      pendingSurface(engine, h);
+    }
+  }, []);
+  const onSurfaceDestroyed = useCallback((h: string) => {
+    if (surfaceHandle.current === h) {
+      surfaceHandle.current = null;
+    }
+    engine.current?.clearSurface(h);
+  }, []);
+  const onCaptionsCreated = useCallback((h: string) => {
+    captionsHandle.current = h;
+    engine.current?.setCaptions(h);
+  }, []);
 
   const catcherOn =
     !panel &&
@@ -1100,30 +1127,11 @@ export function PlayerScreen({
   // with the overlay hidden the catcher is the only thing to focus here.
   return (
     <TVFocusGuideView style={styles.root} trapFocusUp trapFocusDown trapFocusLeft trapFocusRight>
-      <KeplerVideoSurfaceView
-        style={[styles.surface, box]}
-        onSurfaceViewCreated={(h: string) => {
-          surfaceHandle.current = h;
-          if (engine.current) {
-            engine.current.setSurface(h);
-          } else {
-            pendingSurface(engine, h);
-          }
-        }}
-        onSurfaceViewDestroyed={(h: string) => {
-          if (surfaceHandle.current === h) {
-            surfaceHandle.current = null;
-          }
-          engine.current?.clearSurface(h);
-        }}
-      />
-      <KeplerCaptionsView
-        show
-        style={styles.captions}
-        onCaptionViewCreated={(h: string) => {
-          captionsHandle.current = h;
-          engine.current?.setCaptions(h);
-        }}
+      <VideoSurface
+        style={surfaceStyle}
+        onCreated={onSurfaceCreated}
+        onDestroyed={onSurfaceDestroyed}
+        onCaptions={onCaptionsCreated}
       />
       {subText ? (
         <View style={[styles.subsWrap, {bottom: subStyle.bottomPadding}]} pointerEvents="none">
@@ -1405,6 +1413,33 @@ function FocusCatcher({onPress}: {onPress: () => void}) {
 
 // The surface can be created before the engine exists (it's mounted first):
 // keep the handle and hand it over once the engine is up.
+// The surface and captions views, apart from the rest of the screen: that
+// re-renders on every timeupdate (~4 a second), and these re-rendered with it
+// (505 KeplerVideoSurfaceView renders in a few minutes on the Select). With
+// stable callbacks they render only when the surface box changes.
+const VideoSurface = memo(function VideoSurface({
+  style,
+  onCreated,
+  onDestroyed,
+  onCaptions,
+}: {
+  style: unknown;
+  onCreated: (h: string) => void;
+  onDestroyed: (h: string) => void;
+  onCaptions: (h: string) => void;
+}) {
+  return (
+    <>
+      <KeplerVideoSurfaceView
+        style={style as never}
+        onSurfaceViewCreated={onCreated}
+        onSurfaceViewDestroyed={onDestroyed}
+      />
+      <KeplerCaptionsView show style={styles.captions} onCaptionViewCreated={onCaptions} />
+    </>
+  );
+});
+
 function pendingSurface(engine: React.MutableRefObject<PlayerEngine | null>, handle: string) {
   const t = setInterval(() => {
     if (engine.current) {

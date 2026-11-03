@@ -62,6 +62,10 @@ id = "/com.amazon.kepler.navigation__stack_8@INavigation__Stack_0"
 [[needs.module]]
 id = "/com.amazon.kepler.svg_3@ISVG_0"
 
+[[needs.module]]
+id = "/com.amazon.kepler.keplerscript_netmgr_lib_2@INetmgrTurbomodule_0"
+
+
 
 
 
@@ -112,6 +116,11 @@ id = "com.amazon.media.server"
 
 [[wants.service]]
 id = "com.amazon.media.playersession.service"
+
+# Server discovery (src/core/discovery.ts): the TV's own IP address via
+# NetworkManager.getIpConfig, which needs no privilege.
+[[wants.service]]
+id = "com.amazon.network.service"
 
 [[wants.privilege]]
 id = "com.amazon.devconf.privilege.accessibility"

@@ -8,7 +8,7 @@
 // Start: Shaka assumes 1 Mbps until it has measured something (and may read
 // the system's network estimate), so every video opened at the lowest
 // quality and climbed only after several seconds. It now starts from the
-// throughput measured during the last playback.
+// throughput measured during the last playback, but never below 10 Mbps.
 
 import AsyncStorage from '@amazon-devices/react-native-async-storage__async-storage';
 
@@ -54,7 +54,10 @@ export async function startBandwidth(): Promise<number> {
       remembered = 0;
     }
   }
-  return remembered > 0 ? remembered : DEFAULT_START_BPS;
+  // Never below the default: a low reading (mycelium's proxy answers a
+  // segment only once it has fetched all of it, which reads as a slow
+  // network) made every next video start at 720p or lower.
+  return Math.max(remembered, DEFAULT_START_BPS);
 }
 
 /** Throughput Shaka measured during a playback (bits/s). */

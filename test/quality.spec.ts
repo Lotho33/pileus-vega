@@ -25,11 +25,11 @@ describe('quality tiers', () => {
 });
 
 describe('start bandwidth', () => {
-  it('starts from the last measured throughput, clamped', async () => {
+  it('starts from the last measured throughput, never below the default', async () => {
     expect(await startBandwidth()).toBe(10e6);
     rememberBandwidth(42e6);
     expect(await startBandwidth()).toBe(42e6);
-    rememberBandwidth(100);
-    expect(await startBandwidth()).toBe(1.5e6);
+    rememberBandwidth(2e6);
+    expect(await startBandwidth()).toBe(10e6);
   });
 });
