@@ -4,13 +4,15 @@
 
 import {languageBadge} from '../core/language';
 import {liveStartAt, liveWhenShort} from '../details/live';
-import type {CatalogDef, CatalogItem, ContinueWatchingItem} from '../gen/media';
+import type {CatalogDef, CatalogItem, ContinueWatchingItem, LogoMeta} from '../gen/media';
 import type {EpisodeNav} from '../player/episodes';
 
 export interface HeroItem {
   key: string;
   title: string;
   logo: string;
+  /** The logo's measurements (halo, proportions); absent until measured. */
+  logoMeta?: LogoMeta;
   year: number;
   rating: number;
   genres: string[];
@@ -63,6 +65,15 @@ export interface CardModel {
 
 export type CardVariant = 'poster' | 'landscape';
 
+/**
+ * Search results that are mostly live events show as 16:9 cards, like the
+ * home's live rows (search_screen.dart's live layout).
+ */
+export function searchVariant(items: CatalogItem[]): CardVariant {
+  const live = items.filter(i => i.mediaType === 'live').length;
+  return live * 2 > items.length ? 'landscape' : 'poster';
+}
+
 export function variantFor(def: CatalogDef): CardVariant {
   return def.cardLayout === 'landscape' || def.type === 'live' ? 'landscape' : 'poster';
 }
@@ -114,6 +125,7 @@ export function catalogCard(pluginId: string, i: CatalogItem, variant: CardVaria
       key: `${pluginId}:${i.id}`,
       title: i.title,
       logo: i.logoUrl,
+      logoMeta: i.logoMeta,
       year: i.year,
       rating: i.rating,
       genres: splitGenres(e.genres),

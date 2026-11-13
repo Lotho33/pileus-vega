@@ -146,15 +146,15 @@ export function PluginNav({
   plugins: PluginInfo[];
   selected: number;
   L: HomeLayout;
-  /** Land on the first action instead of the selected plugin (back from settings). */
-  focusAction?: boolean;
+  /** Land on this action instead of the selected plugin (back from it). */
+  focusAction?: string;
   onSelect: (index: number) => void;
   actions: {label: string; icon: IconName; onPress: () => void}[];
 }) {
   const logoH = L.H * 0.075;
   const pluginRef = useRef<View>(null);
   const actionRef = useRef<View>(null);
-  const toAction = useRef(!!focusAction).current;
+  const toAction = useRef(!!focusAction && actions.some(a => a.label === focusAction)).current;
   useEffect(() => focusSoon(() => (toAction ? actionRef.current : pluginRef.current)), [toAction]);
   return (
     <TVFocusGuideView style={[styles.root, {width: L.navW}]} trapFocusLeft trapFocusRight trapFocusUp trapFocusDown>
@@ -185,14 +185,14 @@ export function PluginNav({
       </View>
       <View style={styles.divider} />
       <View style={{paddingTop: L.H * (16 / 1080), paddingBottom: L.H * (24 / 1080)}}>
-        {actions.map((a, i) => (
+        {actions.map(a => (
           <NavItem
-            ref={i === 0 ? actionRef : undefined}
+            ref={a.label === focusAction ? actionRef : undefined}
             key={a.label}
             label={a.label}
             icon={a.icon}
             selected={false}
-            preferred={i === 0 && toAction}
+            preferred={a.label === focusAction && toAction}
             L={L}
             onPress={a.onPress}
           />

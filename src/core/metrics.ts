@@ -29,6 +29,7 @@ export const SCREEN_LABELS: Record<string, string> = {
   home: 'Home',
   details: 'Scheda titolo',
   search: 'Ricerca',
+  mylist: 'La mia lista',
   player: 'Player',
 };
 

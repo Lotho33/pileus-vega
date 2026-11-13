@@ -13,8 +13,8 @@ import {Icon} from '../components/Icon';
 import {mycelium} from '../core/api';
 import {focusSoon} from '../core/focus';
 import type {CatalogItem} from '../gen/media';
-import {PosterCard} from '../home/Cards';
 import type {HomeLayout} from '../home/layout';
+import {PosterGrid} from '../home/PosterGrid';
 import {catalogCard, CardModel, OpenTarget} from '../home/model';
 import type {EpisodeNav} from '../player/episodes';
 import {emptyRequest, PlayRequest} from '../player/session';
@@ -25,8 +25,6 @@ import {isAnimeItem, isEpisodeList} from './format';
 
 const H_PAD = 48 / 1920;
 const V_PAD = 28 / 1080;
-const CARD_W = 200 / 1920;
-const CARD_GAP = 20 / 1920;
 const TILE_H = 72 / 1080;
 
 const lastFocus = new Map<string, number>();
@@ -103,9 +101,8 @@ export function BrowseScreen({
   const [items, setItems] = useState<CatalogItem[] | null>(null);
   const [error, setError] = useState('');
   const epList = useRef<FlatList<CatalogItem>>(null);
-  const gridList = useRef<FlatList<CatalogItem[]>>(null);
   const scrollList = (offset: number, animated: boolean) =>
-    (epList.current ?? gridList.current)?.scrollToOffset({offset: Math.max(0, offset), animated});
+    epList.current?.scrollToOffset({offset: Math.max(0, offset), animated});
   const key = `${pluginId}:${parentId}`;
   const startAt = useRef(lastFocus.get(key) ?? 0).current;
   // Items by index, to put focus back explicitly: hasTVPreferredFocus
@@ -180,31 +177,19 @@ export function BrowseScreen({
     }
   };
 
-  // Grid geometry (_PosterGridView).
-  const avail = W - hPad * 2;
-  // Whole pixels: the list scrolls by multiples of these.
-  const gap = Math.round(W * CARD_GAP);
-  const cols = Math.max(2, Math.min(10, Math.floor(avail / (W * CARD_W + gap))));
-  const cardW = Math.floor((avail - gap * (cols - 1)) / cols);
-  const cardH = Math.round(cardW * 1.5);
-  const rowH = cardH + gap;
   const tileH = Math.round(H * TILE_H);
-  const stride = episodes ? tileH : rowH;
-  const rows: CatalogItem[][] = [];
-  if (items && !episodes) {
-    for (let i = 0; i < items.length; i += cols) {
-      rows.push(items.slice(i, i + cols));
-    }
-  }
+  const stride = tileH;
+  const gridCards = items && !episodes ? items.map(it => catalogCard(pluginId, it, 'poster')) : [];
 
   // Keep the focused line about a third of the way down.
   const listH = H - vPad - H * 0.06 - H * 0.014;
   const scrollTo = (line: number) => scrollList(line * stride - listH * 0.3, true);
 
-  // Initial position: the remembered line is scrolled in before it focuses.
-  const initialLine = episodes ? startAt : Math.floor(startAt / cols);
+  // Initial position: the remembered line is scrolled in before it focuses
+  // (the grid does it itself).
+  const initialLine = startAt;
   useEffect(() => {
-    if (items?.length && initialLine > 0) {
+    if (items?.length && episodes && initialLine > 0) {
       scrollList(initialLine * stride - listH * 0.3, false);
     }
     // Once, when the items arrive.
@@ -215,10 +200,10 @@ export function BrowseScreen({
   // the remembered item.
   const loaded = !!items?.length;
   useEffect(() => {
-    if (loaded) {
+    if (loaded && episodes) {
       return focusSoon(() => itemRefs.current.get(lastFocus.get(key) ?? 0) ?? itemRefs.current.get(0));
     }
-  }, [loaded, refocus, key]);
+  }, [loaded, episodes, refocus, key]);
 
   const retryRef = useRef<View>(null);
   useEffect(() => (error ? focusSoon(() => retryRef.current) : undefined), [error]);
@@ -277,39 +262,16 @@ export function BrowseScreen({
     );
   } else {
     body = (
-      <FlatList
-        ref={gridList}
-        data={rows}
-        keyExtractor={r => r[0].id}
-        getItemLayout={(_, index) => ({length: stride, offset: stride * index, index})}
-        scrollEnabled={false}
-        initialNumToRender={Math.max(4, initialLine + 3)}
-        contentContainerStyle={[styles.gridContent, {paddingHorizontal: hPad, paddingTop: cardH * 0.08}]}
-        maxToRenderPerBatch={3}
-        updateCellsBatchingPeriod={50}
-        windowSize={5}
-        renderItem={({item: row, index: r}) => (
-          <View style={[styles.gridRow, {height: rowH, gap}]}>
-            {row.map((it, c) => {
-              const i = r * cols + c;
-              return (
-                <PosterCard
-                  key={it.id}
-                  ref={setItemRef(i)}
-                  card={catalogCard(pluginId, it, 'poster')}
-                  width={cardW}
-                  height={cardH}
-                  preferred={i === startAt}
-                  onFocus={() => {
-                    lastFocus.set(key, i);
-                    scrollTo(r);
-                  }}
-                  onPress={() => open(it, i)}
-                />
-              );
-            })}
-          </View>
-        )}
+      <PosterGrid
+        cards={gridCards}
+        W={W}
+        H={H}
+        hPad={hPad}
+        listH={listH}
+        startAt={startAt}
+        focus={{index: lastFocus.get(key) ?? 0, token: refocus + 1}}
+        onFocusItem={i => lastFocus.set(key, i)}
+        onPressItem={i => items[i] && open(items[i], i)}
       />
     );
   }
@@ -345,8 +307,6 @@ const styles = scaledStyles({
   message: {color: colors.textMid, fontSize: 24, marginTop: 16, textAlign: 'center'},
   actions: {flexDirection: 'row', gap: 24, marginTop: 40},
   epContent: {paddingBottom: 32},
-  gridContent: {paddingBottom: 24},
-  gridRow: {flexDirection: 'row', alignItems: 'flex-start'},
   tile: {
     flexDirection: 'row',
     alignItems: 'center',

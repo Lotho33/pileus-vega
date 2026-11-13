@@ -10,12 +10,14 @@ import {ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View} from '
 import {TVFocusGuideView, useKeplerBackHandler, useTVEventHandler} from '@amazon-devices/react-native-kepler';
 import {Icon} from '../components/Icon';
 import {mycelium} from '../core/api';
+import {useMyList} from '../core/myList';
 import {focusSoon, useFocusGate} from '../core/focus';
 import {batchGroups, DownloadMeta} from '../downloads/batch';
 import {DownloadDialog} from '../downloads/DownloadDialog';
 import type {
   CatalogItem,
   ContinueWatchingItem,
+  DetailsResponse,
   EpisodeInfo,
   SeasonInfo,
   SeriesDetails,
@@ -37,6 +39,7 @@ import {
   MetaRow,
   Poster,
 } from './common';
+import {MyListChip, TrailerChip} from './DetailActions';
 import {EpisodePopup} from './EpisodePopup';
 import {episodeWindow, fmtAirDate, fmtStatus, relatedLists, seasonLabel} from './format';
 import {RelatedRow} from './RelatedRow';
@@ -170,6 +173,8 @@ export function SeriesLayout({
   onBack,
   onOpenRelated,
   relatedRefocus,
+  details,
+  onToast,
 }: {
   pluginId: string;
   item: CatalogItem;
@@ -187,10 +192,14 @@ export function SeriesLayout({
   onOpenRelated: (card: CardModel) => void;
   /** Bumped when the related-title popup closes. */
   relatedRefocus: number;
+  /** The GetDetails answer (what a La mia lista entry keeps). */
+  details: DetailsResponse | null;
+  onToast: (text: string) => void;
 }) {
   const {W, H} = L;
   const s = H / 1080;
   const keplerBack = useKeplerBackHandler();
+  const myListSupported = useMyList().supported;
   const [seasonIdx, setSeasonIdx] = useState(0);
   const [episodes, setEpisodes] = useState<EpisodeInfo[]>([]);
   const [loading, setLoading] = useState(false);
@@ -366,6 +375,14 @@ export function SeriesLayout({
               {sd.episodeRuntime ? <InfoChip icon="schedule" text={sd.episodeRuntime} s={s} /> : null}
               {sd.network ? <InfoChip icon="tv" text={sd.network} s={s} /> : null}
               {sd.status ? <InfoChip icon="schedule" text={fmtStatus(sd.status)} s={s} /> : null}
+            </View>
+          ) : null}
+          {/* series_page_layout: "La mia lista" / "Trailer" above the plot,
+              reached with ← from the episodes. */}
+          {myListSupported || sd?.trailerUrl ? (
+            <View style={[styles.chips, {marginTop: 10 * s, gap: 10 * s}]}>
+              <MyListChip s={s} pluginId={pluginId} item={item} details={details} mediaType="series" onToast={onToast} />
+              <TrailerChip s={s} url={sd?.trailerUrl ?? ''} onToast={onToast} />
             </View>
           ) : null}
           {plot ? (

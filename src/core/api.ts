@@ -381,6 +381,23 @@ export class Mycelium {
     );
   }
 
+  /** La mia lista of the active profile; '' = every plugin, newest first. */
+  async getMyList(pluginId = '') {
+    const r = await this.rpc.unary(M + 'GetMyList', media.MyListRequest, media.MyListResponse, {pluginId});
+    return r.items;
+  }
+
+  /** inList false removes (only plugin_id/media_id matter then). */
+  setMyListItem(item: media.MyListItem, inList: boolean) {
+    return this.rpc.unary(
+      M + 'SetMyListItem',
+      media.SetMyListItemRequest,
+      media.SetMyListItemResponse,
+      {item, inList},
+      {timeoutMs: 8000},
+    );
+  }
+
   releasePlayback() {
     return this.rpc.unary(
       M + 'ReleasePlayback',

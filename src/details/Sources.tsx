@@ -88,18 +88,21 @@ export const PlayButton = forwardRef<
 });
 
 /**
- * "Scarica": a secondary action beside the watch buttons, not a second one
- * of equal weight — ghost outline, smaller text (watch_button.dart's
- * _DownloadChip).
+ * A secondary action beside the watch buttons ("Scarica", "La mia lista",
+ * "Trailer"), not a second one of equal weight: ghost outline, smaller text
+ * (watch_button.dart's _DownloadChip, details_actions.dart). The ref lets a
+ * closing dialog put focus back.
  */
-/** "Scarica" next to the play buttons; the ref lets a closing dialog put focus back. */
-export const DownloadChip = forwardRef<View, {s: number; onPress: () => void}>(function DownloadChip({s, onPress}, ref) {
+export const ActionChip = forwardRef<
+  View,
+  {s: number; icon: IconName; label: string; onPress: () => void}
+>(function ActionChip({s, icon, label, onPress}, ref) {
   const [focused, setFocused] = useState(false);
   const color = focused ? colors.textHigh : colors.textMid;
   return (
     <Pressable
       ref={ref}
-      accessibilityLabel="Scarica"
+      accessibilityLabel={label}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
       onPress={onPress}
@@ -108,10 +111,14 @@ export const DownloadChip = forwardRef<View, {s: number; onPress: () => void}>(f
         {paddingHorizontal: 20 * s, paddingVertical: 10 * s, gap: 6 * s},
         focused && styles.chipFocused,
       ]}>
-      <Icon name="arrowDown" size={16 * s} color={color} />
-      <Text style={[styles.chipText, {fontSize: 15 * s, color}]}>Scarica</Text>
+      <Icon name={icon} size={16 * s} color={color} />
+      <Text style={[styles.chipText, {fontSize: 15 * s, color}]}>{label}</Text>
     </Pressable>
   );
+});
+
+export const DownloadChip = forwardRef<View, {s: number; onPress: () => void}>(function DownloadChip({s, onPress}, ref) {
+  return <ActionChip ref={ref} s={s} icon="arrowDown" label="Scarica" onPress={onPress} />;
 });
 
 /**
@@ -130,6 +137,7 @@ export function SourceButtons({
   align = 'flex-start',
   compact,
   trailing,
+  actions,
 }: {
   state: SourcesState;
   s: number;
@@ -143,6 +151,11 @@ export function SourceButtons({
   compact?: boolean;
   /** Shown at the end of the button row once there are sources (DownloadChip). */
   trailing?: React.ReactNode;
+  /**
+   * After `trailing`, whatever the sources did (La mia lista, Trailer): the
+   * chain Play → Scarica → La mia lista → Trailer, any of them missing.
+   */
+  actions?: React.ReactNode;
 }) {
   const first = useRef<View>(null);
   const ready = !state.loading;
@@ -166,6 +179,7 @@ export function SourceButtons({
       <View style={[styles.wrap, {justifyContent: align, gap: 12 * s}]}>
         <PlayButton compact={compact} ref={first} label={resumeLabel} s={s} primary onPress={onResume} />
         {state.sources.length ? trailing : null}
+        {actions}
       </View>
     );
   }
@@ -173,7 +187,10 @@ export function SourceButtons({
     return (
       <View style={{alignItems: align}}>
         <Text style={[styles.note, {fontSize: 15 * s}]}>{state.error}</Text>
-        <PlayButton compact={compact} ref={first} label="Riprova" s={s} onPress={state.reload} />
+        <View style={[styles.wrap, {justifyContent: align, gap: 12 * s}]}>
+          <PlayButton compact={compact} ref={first} label="Riprova" s={s} onPress={state.reload} />
+          {actions}
+        </View>
       </View>
     );
   }
@@ -181,7 +198,10 @@ export function SourceButtons({
     return (
       <View style={{alignItems: align}}>
         <Text style={[styles.note, {fontSize: 15 * s}]}>Nessuna fonte disponibile.</Text>
-        <PlayButton compact={compact} ref={first} label="Riprova" s={s} onPress={state.reload} />
+        <View style={[styles.wrap, {justifyContent: align, gap: 12 * s}]}>
+          <PlayButton compact={compact} ref={first} label="Riprova" s={s} onPress={state.reload} />
+          {actions}
+        </View>
       </View>
     );
   }
@@ -190,6 +210,7 @@ export function SourceButtons({
       <View style={[styles.wrap, {justifyContent: align, gap: 12 * s}]}>
         <PlayButton compact={compact} ref={first} label="Guarda" s={s} primary onPress={() => onPlay(state.sources[0])} />
         {trailing}
+        {actions}
       </View>
     );
   }
@@ -209,6 +230,7 @@ export function SourceButtons({
           />
         ))}
         {trailing}
+        {actions}
       </View>
     </View>
   );

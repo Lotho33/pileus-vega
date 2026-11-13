@@ -5,7 +5,7 @@ import React, {memo, useEffect, useRef, useState, useSyncExternalStore} from 're
 import {Animated, Image, StyleSheet, Text, View} from 'react-native';
 import {Gradient} from '../components/Gradient';
 import {backdropSrc, posterSrc} from '../core/images';
-import {logoRenderSize, logoUrlOnly} from '../core/logo';
+import {haloOffsets, logoDisplaySize, logoHaloFor, logoUrlOnly} from '../core/logo';
 import * as perf from '../core/perf';
 import {colors, scaledStyles} from '../theme';
 import type {HomeLayout} from './layout';
@@ -30,7 +30,9 @@ export function heroImageUrls(item: HeroItem, L: HomeLayout): string[] {
 /**
  * The title logo: invisible until decoded, then shown at once (no fade, as
  * meta_zone.dart's _LogoWidget); the title text if it fails (e.g. an SVG,
- * which Image can't decode).
+ * which Image can't decode). A logo that would vanish on the dark hero gets
+ * the halo its logo_meta asks for (smart_logo.dart): tinted copies shifted
+ * by 1–2 units under it, never a blur.
  */
 function HeroLogo({item, L}: {item: HeroItem; L: HomeLayout}) {
   const [state, setState] = useState<'loading' | 'ok' | 'failed'>('loading');
@@ -38,18 +40,37 @@ function HeroLogo({item, L}: {item: HeroItem; L: HomeLayout}) {
   if (state === 'failed') {
     return <HeroTitle item={item} L={L} />;
   }
-  const size = logoRenderSize(item.logo, L.metaW * 0.65, L.zTitleH, L.metaW * 0.65);
+  const size = logoDisplaySize(item.logo, item.logoMeta, L.metaW * 0.65, L.zTitleH);
+  const uri = logoSrc(item.logo, L);
+  const halo = logoHaloFor(item.logo, item.logoMeta);
+  const tint = halo.kind === 'light' ? colors.textHigh : '#000';
   return (
-    <Image
-      source={{uri: logoSrc(item.logo, L)}}
-      style={[{width: size.w, height: size.h}, state !== 'ok' && styles.hidden]}
-      resizeMode="contain"
-      onLoad={() => {
-        perf.sample('hero logo', Date.now() - t0.current);
-        setState('ok');
-      }}
-      onError={() => setState('failed')}
-    />
+    <View style={[{width: size.w, height: size.h}, state !== 'ok' && styles.hidden]}>
+      {state === 'ok'
+        ? haloOffsets(halo).map(o => (
+            <Image
+              key={`${o.x},${o.y}`}
+              source={{uri}}
+              style={[
+                StyleSheet.absoluteFill,
+                halo.strong ? styles.haloStrong : styles.haloSoft,
+                {tintColor: tint, transform: [{translateX: o.x}, {translateY: o.y}]},
+              ]}
+              resizeMode="contain"
+            />
+          ))
+        : null}
+      <Image
+        source={{uri}}
+        style={StyleSheet.absoluteFill}
+        resizeMode="contain"
+        onLoad={() => {
+          perf.sample('hero logo', Date.now() - t0.current);
+          setState('ok');
+        }}
+        onError={() => setState('failed')}
+      />
+    </View>
   );
 }
 
@@ -210,6 +231,8 @@ export const Hero = memo(function Hero({item, L}: {item: HeroItem | null; L: Hom
 const styles = scaledStyles({
   abs: {position: 'absolute', justifyContent: 'center'},
   hidden: {opacity: 0},
+  haloStrong: {opacity: 0.9},
+  haloSoft: {opacity: 0.6},
   title: {color: colors.textHigh, fontWeight: '900', letterSpacing: -0.5},
   metaRow: {flexDirection: 'row', alignItems: 'center'},
   chip: {color: colors.textHigh, fontWeight: '600'},

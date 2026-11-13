@@ -17,7 +17,7 @@ import {focusSoon, useFocusGate} from '../core/focus';
 import type {PluginInfo, SearchFilter} from '../gen/media';
 import {CarouselRow} from '../home/CarouselRow';
 import {computeLayout} from '../home/layout';
-import {CardModel, catalogCard} from '../home/model';
+import {CardModel, CardVariant, catalogCard, searchVariant} from '../home/model';
 import {errorText} from '../state/auth';
 import {colors, px, scaledStyles} from '../theme';
 import {FilterPanel} from './FilterPanel';
@@ -28,6 +28,8 @@ const DEBOUNCE_MS = 350;
 
 interface Results {
   cards: CardModel[];
+  /** Mostly live results: 16:9 cards and no further pages. */
+  variant: CardVariant;
   page: number;
   hasMore: boolean;
   loadingMore: boolean;
@@ -201,12 +203,14 @@ export function SearchScreen({
         }
         setResults(prev => {
           const base = page > 1 && prev ? prev.cards : [];
+          const variant = page > 1 && prev ? prev.variant : searchVariant(r.items);
           const seen = new Set(base.map(c => c.key));
           const next = r.items
-            .map(i => catalogCard(plugin.pluginId, i, 'poster'))
+            .map(i => catalogCard(plugin.pluginId, i, variant))
             .filter(c => !seen.has(c.key) && !!seen.add(c.key));
           return {
             cards: [...base, ...next],
+            variant,
             page,
             hasMore: r.hasMore,
             loadingMore: false,
@@ -424,9 +428,9 @@ export function SearchScreen({
               <ActivityIndicator color="rgba(255,255,255,0.54)" style={[styles.refreshing, {right: hPad}]} />
             ) : null}
             <CarouselRow
-              key={cards[0].key}
+              key={`${results?.variant}:${cards[0].key}`}
               cards={cards}
-              variant="poster"
+              variant={results?.variant ?? 'poster'}
               L={L}
               isInactive={gate}
               takeFocus={false}
@@ -439,7 +443,7 @@ export function SearchScreen({
                 }
               }}
               loadMore={
-                results?.hasMore
+                results?.hasMore && results.variant === 'poster'
                   ? {
                       loading: results.loadingMore,
                       failed: results.moreFailed,

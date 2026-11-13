@@ -1,12 +1,15 @@
 import React from 'react';
-import {Image, View} from 'react-native';
+import {Image, Text, View} from 'react-native';
 import {SvgXml} from '@amazon-devices/react-native-svg';
+import {useAvatarSource} from '../core/avatarCache';
 import {colors, scaledStyles} from '../theme';
 import {Gradient, GradientName} from './Gradient';
 
 // pileus-player's kDefaultAvatars (shared/widgets/default_avatars.dart): a
 // Material "round" icon on a diagonal gradient of its colour. The avatar is
-// stored as "avatar://<index>"; any other URL is an image. Icon markup from
+// stored as "avatar://<index>"; an empty one is the name's initial (on the
+// primary gradient, avatar 0's); any other URL is an image — a photo set in
+// mycelium's dashboard, cached on disk (core/avatarCache). Icon markup from
 // Google's Material Icons (Apache 2.0), 24×24 viewBox.
 // Colours live in gradients/defs.json too (avatar0…avatar9 ramps).
 const AVATARS: {color: string; svg: string}[] = [
@@ -71,10 +74,25 @@ export function avatarIndex(url: string): number {
   return Math.min(Math.max(n, 0), AVATARS.length - 1);
 }
 
+/** The name's first letter, as the "no avatar" tile shows it. */
+export function initialOf(name: string): string {
+  const c = Array.from(name.trim())[0] ?? '?';
+  return c.toUpperCase();
+}
+
+function Photo({name, url, size}: {name: string; url: string; size: number}) {
+  const src = useAvatarSource(url);
+  const box = {width: size, height: size, borderRadius: size / 2};
+  if (!src) {
+    return <View accessibilityLabel={name} style={[box, styles.image]} />;
+  }
+  return <Image accessibilityLabel={name} source={{uri: src}} style={[box, styles.image]} />;
+}
+
 export function Avatar({name, url, size}: {name: string; url: string; size: number}) {
   const box = {width: size, height: size, borderRadius: size / 2};
   if (url && !url.startsWith(SCHEME)) {
-    return <Image accessibilityLabel={name} source={{uri: url}} style={[box, styles.image]} />;
+    return <Photo name={name} url={url} size={size} />;
   }
   const idx = url ? avatarIndex(url) : 0;
   const a = AVATARS[idx];
@@ -95,11 +113,15 @@ export function Avatar({name, url, size}: {name: string; url: string; size: numb
         }}>
         <Gradient name={`avatar${idx}` as GradientName} direction="toBottom" />
       </View>
-      <SvgXml
-        xml={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#ffffff">${a.svg}</svg>`}
-        width={icon}
-        height={icon}
-      />
+      {url ? (
+        <SvgXml
+          xml={`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#ffffff">${a.svg}</svg>`}
+          width={icon}
+          height={icon}
+        />
+      ) : (
+        <Text style={[styles.initial, {fontSize: size * 0.42}]}>{initialOf(name)}</Text>
+      )}
     </View>
   );
 }
@@ -107,4 +129,5 @@ export function Avatar({name, url, size}: {name: string; url: string; size: numb
 const styles = scaledStyles({
   image: {backgroundColor: colors.surface2},
   clip: {overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg},
+  initial: {color: '#ffffff', fontWeight: '700'},
 });

@@ -87,6 +87,14 @@ export function computeLayout(W: number, H: number): HomeLayout {
   };
 }
 
+/**
+ * Card titles under posters (app_scale.dart caption: 21/1080 of the height,
+ * 11–30 units).
+ */
+export function captionFont(H: number): number {
+  return Math.min(30, Math.max(11, (H * 21) / 1080));
+}
+
 export function useHomeLayout(): HomeLayout {
   const {width, height} = useWindowDimensions();
   return computeLayout(width, height);

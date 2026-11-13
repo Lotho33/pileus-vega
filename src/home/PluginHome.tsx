@@ -7,11 +7,13 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {ActivityIndicator, AppState, Image, StyleSheet, Text, View} from 'react-native';
 import {useTVEventHandler} from '@amazon-devices/react-native-kepler';
+import {FocusButton} from '../components/FocusButton';
 import {mycelium} from '../core/api';
+import {logoPending} from '../core/logo';
 import {HOME_ROW_MAX_ITEMS, showsMoreSlot} from '../core/paging';
 import * as perf from '../core/perf';
 import {scheduleWarm} from '../core/warm';
-import {useFocusGate} from '../core/focus';
+import {focusSoon, useFocusGate} from '../core/focus';
 import type {CatalogDef, ContinueWatchingItem, PluginInfo} from '../gen/media';
 import {colors, scaledStyles} from '../theme';
 import {CarouselRow, FocusRequest} from './CarouselRow';
@@ -61,6 +63,23 @@ const HERO_DEBOUNCE_MS = 120;
 // With ←/→ held the hero waits for the release; this long without a new card
 // counts as released too.
 const HOLD_SETTLE_FALLBACK_MS = 400;
+// A first page with logos the server hasn't measured yet is read again this
+// long after, once per row (discovery_bloc.dart's logoMetaRetryDelay), so a
+// dark logo gets its halo in this session.
+const LOGO_META_RETRY_MS = 6000;
+
+/** "Nessun contenuto": the page's only focus point while it's shown. */
+function EmptyPage({active, onRetry}: {active: boolean; onRetry: () => void}) {
+  const ref = useRef<View>(null);
+  useEffect(() => (active ? focusSoon(() => ref.current) : undefined), [active]);
+  return (
+    <View style={styles.empty}>
+      <Text style={styles.emptyTitle}>Nessun contenuto</Text>
+      <Text style={styles.emptyText}>I cataloghi di questo plugin sono vuoti.</Text>
+      <FocusButton ref={ref} label="Riprova" primary onPress={onRetry} style={styles.emptyButton} />
+    </View>
+  );
+}
 
 export function PluginHome({
   plugin,
@@ -74,6 +93,7 @@ export function PluginHome({
   onOpenSearch,
   onOpenItem,
   onCardMenu,
+  onEmptyChange,
 }: {
   plugin: PluginInfo;
   catalogs: CatalogDef[];
@@ -93,6 +113,8 @@ export function PluginHome({
   onOpenItem: (card: CardModel) => void;
   /** Select held on a card; `def` is the card's catalog (none for CW). */
   onCardMenu: (card: CardModel, def?: CatalogDef) => void;
+  /** The page turned into (or out of) "Nessun contenuto". */
+  onEmptyChange?: (empty: boolean) => void;
 }) {
   const [state, setState] = useState<Record<string, CatalogState>>({});
   const stateRef = useRef(state);
@@ -121,12 +143,34 @@ export function PluginHome({
     return out;
   }, [catalogs, cwCards.length, state]);
 
+  // Every catalog came back empty: one focus point, "Nessun contenuto"
+  // (OK retries, ←/Back open the nav — HomeScreen handles Back).
+  const empty =
+    catalogs.length > 0 &&
+    rows.length === 0 &&
+    catalogs.every(c => {
+      const st = state[c.id];
+      return st && !st.loading && !st.failed;
+    });
+  useEffect(() => onEmptyChange?.(empty), [empty, onEmptyChange]);
+
   const [rowId, setRowId] = useState<string>(() => (cwCards.length ? 'cw' : catalogs[0]?.id ?? ''));
   const rowIndex = Math.max(
     0,
     rows.findIndex(r => r.id === rowId),
   );
   const row = rows[rowIndex];
+
+  // Hero follows the focused card, debounced so holding → doesn't decode
+  // every fanart on the way.
+  const heroStore = useRef(createHeroStore()).current;
+  const setHero = heroStore.set;
+  const heroTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const focusedIndex = useRef(0);
+
+  // The card the hero is (or is about to be) showing: a CW details lookup
+  // only lands while it's still that card.
+  const heroCard = useRef('');
 
   const load = useCallback(
     async (def: CatalogDef) => {
@@ -145,12 +189,55 @@ export function PluginHome({
           ...s,
           [def.id]: firstPage(cards, {hasMore: r.hasMore}),
         }));
+        if (r.items.some(i => logoPending(i.logoUrl, i.logoMeta))) {
+          rereadForLogoMeta(def);
+        }
       } catch {
         setState(s => ({...s, [def.id]: firstPage([], {failed: true})}));
       }
     },
+    // rereadForLogoMeta only reads refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [plugin.pluginId],
   );
+
+  // The silent re-read: the measured items replace the ones on screen by
+  // key, in place (same cards, same order), only while the row is still on
+  // its first page. The hero picks up the focused card's measurements.
+  const logoRetried = useRef(new Set<string>());
+  const logoTimers = useRef(new Set<ReturnType<typeof setTimeout>>());
+  useEffect(() => {
+    const timers = logoTimers.current;
+    return () => timers.forEach(clearTimeout);
+  }, []);
+  const rereadForLogoMeta = (def: CatalogDef) => {
+    if (logoRetried.current.has(def.id)) {
+      return;
+    }
+    logoRetried.current.add(def.id);
+    const t = setTimeout(async () => {
+      logoTimers.current.delete(t);
+      try {
+        const r = await mycelium.getCatalog(plugin.pluginId, def.id, 1);
+        const variant = variantFor(def);
+        const fresh = new Map(r.items.map(i => [`${plugin.pluginId}:${i.id}`, catalogCard(plugin.pluginId, i, variant)]));
+        setState(st => {
+          const cur = st[def.id];
+          if (!cur || cur.loading || cur.page !== 1) {
+            return st;
+          }
+          return {...st, [def.id]: {...cur, cards: cur.cards.map(c => fresh.get(c.key) ?? c)}};
+        });
+        const shown = fresh.get(heroCard.current);
+        if (shown) {
+          setHero(shown.hero);
+        }
+      } catch {
+        // The logo stays as it is; the next start measures it.
+      }
+    }, LOGO_META_RETRY_MS);
+    logoTimers.current.add(t);
+  };
 
   // The next page of a row, appended without repeats. One at a time per row:
   // focus can step past several cards before "loading" reaches the row.
@@ -261,21 +348,12 @@ export function PluginHome({
   );
   const rowState = row?.def ? state[row.def.id] : undefined;
 
-  // Hero follows the focused card, debounced so holding → doesn't decode
-  // every fanart on the way.
-  const heroStore = useRef(createHeroStore()).current;
-  const setHero = heroStore.set;
-  const heroTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const focusedIndex = useRef(0);
-
-  // The card the hero is (or is about to be) showing: a CW details lookup
-  // only lands while it's still that card.
-  const heroCard = useRef('');
   const commitHero = useCallback((card: CardModel) => {
     heroCard.current = card.key;
     const entry = card.open.cw;
-    setHero((entry && cachedCwHero(entry)) || card.hero);
-    if (entry && !cachedCwHero(entry)) {
+    const cached = entry && cachedCwHero(entry);
+    setHero(cached || card.hero);
+    if (entry && (!cached || logoPending(cached.logo, cached.logoMeta))) {
       fetchCwHero(entry, card.hero).then(h => {
         if (h && heroCard.current === card.key) {
           setHero(h);
@@ -397,6 +475,10 @@ export function PluginHome({
     if (inactive || evt.eventKeyAction === 1) {
       return;
     }
+    // "Nessun contenuto" is the page's only focus point: only ← leaves it.
+    if (empty && evt.eventType !== 'left') {
+      return;
+    }
     switch (evt.eventType) {
       case 'down':
         switchRow(1);
@@ -417,6 +499,7 @@ export function PluginHome({
         break;
     }
   });
+
 
   // Once the switched-to row's first card exists it takes focus.
   const firstCardKey = cards[0]?.key ?? '';
@@ -474,8 +557,14 @@ export function PluginHome({
           />
         ) : rowState?.failed ? (
           <Text style={styles.message}>Impossibile caricare questa sezione.</Text>
-        ) : rows.length === 0 && Object.keys(state).length >= catalogs.length ? (
-          <Text style={styles.message}>Nessun contenuto disponibile.</Text>
+        ) : empty ? (
+          <EmptyPage
+            active={!inactive}
+            onRetry={() => {
+              logoRetried.current.clear();
+              setState({});
+            }}
+          />
         ) : (
           <ActivityIndicator size="large" color={colors.primary} style={styles.spinner} />
         )}
@@ -487,5 +576,9 @@ export function PluginHome({
 const styles = scaledStyles({
   strip: {position: 'absolute', left: 0, right: 0, bottom: 0},
   message: {color: colors.textMid, fontSize: 26, marginLeft: 56, marginTop: 40},
+  empty: {marginLeft: 56, marginTop: 40, alignItems: 'flex-start'},
+  emptyTitle: {color: colors.textHigh, fontSize: 36, fontWeight: '700'},
+  emptyText: {color: colors.textMid, fontSize: 24, marginTop: 10},
+  emptyButton: {marginTop: 28},
   spinner: {marginTop: 80},
 });

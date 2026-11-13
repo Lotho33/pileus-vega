@@ -7,7 +7,7 @@
 import React, {useMemo, useRef, useState} from 'react';
 import {StyleSheet, Text, View} from 'react-native';
 import {Gradient} from '../components/Gradient';
-import type {CatalogItem, ContinueWatchingItem, MovieDetails, SeriesDetails} from '../gen/media';
+import type {CatalogItem, ContinueWatchingItem, DetailsResponse, MovieDetails, SeriesDetails} from '../gen/media';
 import type {HomeLayout} from '../home/layout';
 import type {CardModel} from '../home/model';
 import {focusSoon} from '../core/focus';
@@ -27,6 +27,7 @@ import {fmtStatus, relatedLists} from './format';
 import {emptyRequest, PlayRequest} from '../player/session';
 import {RelatedRow} from './RelatedRow';
 import {DownloadDialog} from '../downloads/DownloadDialog';
+import {MyListChip, TrailerChip} from './DetailActions';
 import {DownloadChip, SourceButtons, useSources} from './Sources';
 
 export function MovieLayout({
@@ -44,6 +45,8 @@ export function MovieLayout({
   onBack,
   onOpenRelated,
   relatedRefocus,
+  details,
+  onToast,
 }: {
   pluginId: string;
   item: CatalogItem;
@@ -63,6 +66,9 @@ export function MovieLayout({
   onOpenRelated: (card: CardModel) => void;
   /** Bumped when the related-title popup closes. */
   relatedRefocus: number;
+  /** The GetDetails answer (what a La mia lista entry keeps). */
+  details: DetailsResponse | null;
+  onToast: (text: string) => void;
 }) {
   const {W, H} = L;
   const s = H / 1080;
@@ -98,6 +104,8 @@ export function MovieLayout({
   const posterBase = W * detailsPosterWRatio;
   const posterW = hasRelated ? posterBase : Math.min(posterBase * 1.3, Math.max(posterBase, mainH / 1.5));
 
+  // Films only (anime films included): a clip or an episode opened here isn't saved.
+  const savable = anime || item.mediaType === 'movie' || !item.mediaType;
   const sources = useSources(pluginId, item.id);
   const [download, setDownload] = useState(false);
   const chipRef = useRef<View>(null);
@@ -167,6 +175,14 @@ export function MovieLayout({
               resumeStreamId={resume?.mediaId}
               onPlay={src => onPlay({...base, streamId: src.id, sourceLabel: src.label})}
               trailing={canDownload ? <DownloadChip ref={chipRef} s={s} onPress={() => setDownload(true)} /> : undefined}
+              actions={
+                <>
+                  {savable ? (
+                    <MyListChip s={s} pluginId={pluginId} item={item} details={details} mediaType="movie" onToast={onToast} />
+                  ) : null}
+                  <TrailerChip s={s} url={d?.trailerUrl || sd?.trailerUrl || ''} onToast={onToast} />
+                </>
+              }
             />
             {note ? <Text style={[styles.cast, {fontSize: 15 * s, marginTop: 8 * s}]}>{note}</Text> : null}
           </View>

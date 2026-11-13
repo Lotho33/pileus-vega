@@ -43,6 +43,7 @@ export function DetailsScreen({
   refocus = 0,
   covered = false,
   canDownload = false,
+  onToast = () => {},
 }: {
   target: OpenTarget;
   /** Bumped when something on top (the player) closes: focus comes back. */
@@ -51,6 +52,8 @@ export function DetailsScreen({
   covered?: boolean;
   /** The plugin supports server-side downloads ("download" capability). */
   canDownload?: boolean;
+  /** A short confirmation (La mia lista, trailer) in the app's toast. */
+  onToast?: (text: string) => void;
   cw: ContinueWatchingItem[];
   onBack: () => void;
   onPlay: (req: PlayRequest) => void;
@@ -162,6 +165,8 @@ export function DetailsScreen({
       canDownload,
       onOpenRelated: setPeek,
       relatedRefocus,
+      details: res,
+      onToast,
     };
     if (item.mediaType === 'live') {
       body = item.isDir ? (

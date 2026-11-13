@@ -80,6 +80,8 @@ export class PlayerEngine {
   private listeners = new Map<EngineEvent, Set<(arg?: unknown) => void>>();
   private surface: string | null = null;
   private wantPlay = false;
+  /** The user's speed (speed.ts); a new source starts at it too. */
+  private rate = 1;
   lastError = '';
   /** HLS subtitles, drawn by the screen with the profile's style. */
   readonly cues = new CueStore();
@@ -197,6 +199,20 @@ export class PlayerEngine {
       await this.shaka.load(url, opts.startAt && opts.startAt > 0 ? opts.startAt : null);
       this.emit('tracks');
     } else {
+      // A Shaka left from an HLS source (previous episode, or a language
+      // switch onto an MP4/MKV) still owns the element through MSE: setting
+      // src under it makes Shaka raise an error on a source that's fine.
+      // Same bug pileus-player's web player had (fixed 13/11/2026).
+      if (this.shaka) {
+        const old = this.shaka;
+        this.shaka = null;
+        try {
+          rememberBandwidth(old.getStats?.().estimatedBandwidth ?? 0);
+          await old.destroy();
+        } catch {
+          // Already torn down.
+        }
+      }
       v.src = url;
       if (opts.startAt && opts.startAt > 0) {
         const at = opts.startAt;
@@ -207,8 +223,35 @@ export class PlayerEngine {
         v.addEventListener('loadedmetadata', seekOnce);
       }
     }
+    // Loading a source resets the element's speed.
+    this.applyRate();
     if (this.wantPlay || this.surface) {
       this.play();
+    }
+  }
+
+  /** Playback speed, kept across the sources this engine opens. */
+  setRate(rate: number) {
+    this.rate = rate;
+    this.applyRate();
+  }
+
+  get playbackRate(): number {
+    return this.rate;
+  }
+
+  private applyRate() {
+    const v = this.video;
+    if (!v) {
+      return;
+    }
+    try {
+      (v as any).defaultPlaybackRate = this.rate;
+    } catch {
+      // Not every element exposes it.
+    }
+    if (v.playbackRate !== this.rate) {
+      v.playbackRate = this.rate;
     }
   }
 

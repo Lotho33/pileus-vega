@@ -2,12 +2,11 @@
 // "forget this device", switch and delete.
 
 import React, {useRef, useState} from 'react';
-import {Pressable, StyleSheet, Text, View} from 'react-native';
-import {TVFocusGuideView, useKeplerBackHandler} from '@amazon-devices/react-native-kepler';
-import {Avatar, AVATAR_COUNT, avatarUrl} from '../components/Avatar';
+import {Text, View} from 'react-native';
+import {Avatar} from '../components/Avatar';
+import {AvatarPicker} from '../components/AvatarPicker';
 import {ConfirmDialog} from '../components/ConfirmDialog';
 import {mycelium} from '../core/api';
-import {focusSoon} from '../core/focus';
 import {errorText, useAuth} from '../state/auth';
 import {colors, font, px, scaledStyles, space} from '../theme';
 import {TextDialog} from './TextDialog';
@@ -25,69 +24,6 @@ type Dialog =
   | 'delete'
   | 'default-set'
   | 'default-blocked';
-
-function AvatarPicker({
-  name,
-  current,
-  onPick,
-  onCancel,
-}: {
-  name: string;
-  current: string;
-  onPick: (url: string) => void;
-  onCancel: () => void;
-}) {
-  const keplerBack = useKeplerBackHandler();
-  const refs = useRef(new Map<number, View>());
-  const cur = Math.max(0, Array.from({length: AVATAR_COUNT}, (_, i) => avatarUrl(i)).indexOf(current));
-  React.useEffect(() => focusSoon(() => refs.current.get(cur)), [cur]);
-  React.useEffect(() => {
-    const sub = keplerBack.addEventListener('hardwareBackPress', () => {
-      onCancel();
-      return true;
-    });
-    return () => sub.remove();
-  }, [keplerBack, onCancel]);
-  return (
-    <View style={styles.scrim}>
-      <TVFocusGuideView style={styles.card} trapFocusLeft trapFocusRight trapFocusUp trapFocusDown>
-        <Text style={styles.title}>Scegli avatar</Text>
-        <View style={styles.grid}>
-          {Array.from({length: AVATAR_COUNT}, (_, i) => (
-            <AvatarCell
-              key={i}
-              ref={(v: View | null) => {
-                if (v) {
-                  refs.current.set(i, v);
-                }
-              }}
-              name={name}
-              url={avatarUrl(i)}
-              selected={avatarUrl(i) === current}
-              onPress={() => onPick(avatarUrl(i))}
-            />
-          ))}
-        </View>
-      </TVFocusGuideView>
-    </View>
-  );
-}
-
-const AvatarCell = React.forwardRef<View, {name: string; url: string; selected: boolean; onPress: () => void}>(
-  function AvatarCell({name, url, selected, onPress}, ref) {
-    const [focused, setFocused] = useState(false);
-    return (
-      <Pressable
-        ref={ref}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        onPress={onPress}
-        style={[styles.cell, selected && styles.cellSelected, focused && styles.cellFocused]}>
-        <Avatar name={name} url={url} size={px(112)} />
-      </Pressable>
-    );
-  },
-);
 
 export function ProfilePage() {
   const {profile, exitProfile, forgetDevice, profileDeleted, updateProfile, session, setDefaultProfile} =
@@ -316,22 +252,4 @@ export function ProfilePage() {
 const styles = scaledStyles({
   hero: {flexDirection: 'row', alignItems: 'center', gap: space.m, marginTop: space.s},
   heroName: {color: colors.textHigh, fontSize: font.title, fontWeight: '700'},
-  scrim: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  card: {
-    padding: space.l,
-    borderRadius: 24,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  title: {color: colors.textHigh, fontSize: font.title * 0.8, fontWeight: '700', marginBottom: space.m},
-  grid: {flexDirection: 'row', flexWrap: 'wrap', width: 5 * 140, gap: 0},
-  cell: {width: 140, height: 140, alignItems: 'center', justifyContent: 'center', borderRadius: 70, borderWidth: 4, borderColor: 'transparent'},
-  cellSelected: {borderColor: 'rgba(124,106,247,0.6)'},
-  cellFocused: {borderColor: colors.textHigh},
 });

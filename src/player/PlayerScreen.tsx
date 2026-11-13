@@ -71,6 +71,7 @@ import {
   streamIdForNext,
 } from './episodes';
 import {classifyResolveError, fmtClock, PlayRequest, resolveWithRetry, saveProgress} from './session';
+import {PLAYBACK_SPEEDS, playbackSpeedLabel} from './speed';
 import {getViewMode, setViewMode, surfaceBox, ViewMode, VIEW_MODES} from './viewMode';
 import {LiveFailover} from './liveFailover';
 
@@ -98,7 +99,7 @@ type Phase =
   | {kind: 'error'; message: string}
   | {kind: 'elsewhere'; message: string};
 
-type Panel = null | 'master' | 'audio' | 'video' | 'format' | 'text' | 'source';
+type Panel = null | 'master' | 'audio' | 'video' | 'format' | 'speed' | 'text' | 'source';
 
 interface PanelItem {
   key: string;
@@ -233,6 +234,9 @@ export function PlayerScreen({
   const [text, setText] = useState<Track[]>([]);
   const [video, setVideo] = useState<Track[]>([]);
   const [viewMode, setMode] = useState<ViewMode>(getViewMode());
+  // This player session's speed (speed.ts): kept across its episodes.
+  const [speed, setSpeed] = useState(1);
+  const speedRef = useRef(1);
   const [videoSize, setVideoSize] = useState({w: 0, h: 0});
   const {width: W, height: H} = useWindowDimensions();
   const {profile} = useAuth();
@@ -320,6 +324,12 @@ export function PlayerScreen({
       } else {
         failover.current = null;
       }
+      // Live: the live-sync owns the position, always at 1×.
+      if (r.isLive && speedRef.current !== 1) {
+        speedRef.current = 1;
+        setSpeed(1);
+        engine.current?.setRate(1);
+      }
       lastProgressAt.current = Date.now();
       stallStrikes.current = 0;
       if (errorGrace.current) {
@@ -355,6 +365,7 @@ export function PlayerScreen({
           const e = new PlayerEngine();
           await e.init();
           engine.current = e;
+          e.setRate(speedRef.current);
           if (surfaceHandle.current) {
             e.setSurface(surfaceHandle.current);
           }
@@ -986,6 +997,16 @@ export function PlayerScreen({
         value: VIEW_MODES.find(m => m.id === viewMode)?.label ?? '',
         onPress: () => setPanel('format'),
       },
+      ...(!req.isLive
+        ? [
+            {
+              key: 'speed',
+              label: 'Velocità',
+              value: playbackSpeedLabel(speed),
+              onPress: () => setPanel('speed'),
+            },
+          ]
+        : []),
       ...(text.length
         ? [
             {
@@ -1054,6 +1075,19 @@ export function PlayerScreen({
       onPress: () => {
         setViewMode(m.id);
         setMode(m.id);
+        done();
+      },
+    }));
+  } else if (panel === 'speed') {
+    panelTitle = 'Velocità';
+    panelItems = PLAYBACK_SPEEDS.map(v => ({
+      key: `x${v}`,
+      label: playbackSpeedLabel(v),
+      active: Math.abs(v - speed) < 0.001,
+      onPress: () => {
+        speedRef.current = v;
+        setSpeed(v);
+        engine.current?.setRate(v);
         done();
       },
     }));

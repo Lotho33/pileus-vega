@@ -1,9 +1,12 @@
 // The Continue Watching hero (shell.dart's _fetchCwHero): the card's own
 // fields show at once, then GetDetails of the show (or the movie) upgrades
 // it with the logo, the fanart and the show's plot/genres. Results are kept
-// per show; a lookup that fails isn't retried for 30 s.
+// per show; a lookup that fails isn't retried for 30 s. A result whose logo
+// the server hasn't measured yet (logoPending) is shown but looked up again
+// on a later visit, once, so a dark logo gets its halo this session.
 
 import {mycelium} from '../core/api';
+import {logoPending} from '../core/logo';
 import type {ContinueWatchingItem} from '../gen/media';
 import type {HeroItem} from './model';
 
@@ -24,7 +27,7 @@ export function cachedCwHero(i: ContinueWatchingItem): HeroItem | undefined {
 export async function fetchCwHero(i: ContinueWatchingItem, base: HeroItem): Promise<HeroItem | null> {
   const key = cwHeroKey(i);
   const hit = cache.get(key);
-  if (hit) {
+  if (hit && !logoPending(hit.logo, hit.logoMeta)) {
     return hit;
   }
   const last = triedAt.get(key);
@@ -44,18 +47,19 @@ export async function fetchCwHero(i: ContinueWatchingItem, base: HeroItem): Prom
       parentId = '';
     }
     if (!parentId) {
-      return null;
+      return hit ?? null;
     }
   }
   try {
     const r = await mycelium.getDetails(i.pluginId, parentId || i.mediaId);
     const d = r.series ?? r.movie;
     if (!d) {
-      return null;
+      return hit ?? null;
     }
     const hero: HeroItem = {
       ...base,
       logo: d.logoUrl || r.item?.logoUrl || '',
+      logoMeta: d.logoUrl ? d.logoMeta : r.item?.logoMeta,
       year: d.year || base.year,
       rating: r.item?.rating || base.rating,
       genres: d.genres.length ? d.genres.slice(0, 4) : base.genres,
@@ -65,6 +69,6 @@ export async function fetchCwHero(i: ContinueWatchingItem, base: HeroItem): Prom
     cache.set(key, hero);
     return hero;
   } catch {
-    return null;
+    return hit ?? null;
   }
 }

@@ -36,10 +36,12 @@ export interface CatalogItem {
   isExternal: boolean;
   /** escape hatch for plugin-specific edge cases — NOT for structured data: */
   extra: { [key: string]: string };
-  /** logo_url: transparent PNG/SVG wordmark (from TMDB images.logos or Fanart.tv) */
+  /** logo_url: transparent PNG/SVG wordmark of the title */
   logoUrl: string;
-  /** banner_url: wide landscape image (AniList bannerImage, TMDB backdrop for banner-mode) */
+  /** banner_url: wide landscape image (banner-mode) */
   bannerUrl: string;
+  /** Set by the core, never by plugins: see LogoMeta. */
+  logoMeta: LogoMeta | undefined;
 }
 
 export interface CatalogItem_ExtraEntry {
@@ -48,15 +50,45 @@ export interface CatalogItem_ExtraEntry {
 }
 
 /**
- * EpisodeInfo is the rich episode object returned when browsing a season.
- * TMDB-first: all fields map 1:1 to TMDB episode response.
+ * LogoMeta describes a logo_url image, measured by the core the first time
+ * the URL goes out (in the background: until then the field is unset, and a
+ * later response carries it). Clients use it to decide whether the logo
+ * needs a halo to read on the background they draw it on.
+ * Luminance values are WCAG relative luminance, 0 (black) to 1 (white), of
+ * the logo's visible pixels (alpha >= 50%).
  */
+export interface LogoMeta {
+  /** measured image size: the logo's aspect ratio */
+  width: number;
+  height: number;
+  /** 10th percentile: the darkest parts */
+  lumLow: number;
+  /** median: the logo's body */
+  lumMid: number;
+  /** 90th percentile: the lightest parts */
+  lumHigh: number;
+  /** share of visible pixels darker than 0.10 */
+  darkShare: number;
+  /** share of visible pixels lighter than 0.60 */
+  lightShare: number;
+  /** visible pixels / all pixels (low = thin strokes or lots of padding) */
+  coverage: number;
+  /** dominant colour, 0xRRGGBB */
+  color: number;
+  /**
+   * halo suggested for a dark background: "" (none) or "light". A client
+   * drawing on a light background decides from the values above instead.
+   */
+  halo: string;
+}
+
+/** EpisodeInfo is the rich episode object returned when browsing a season. */
 export interface EpisodeInfo {
   id: string;
   title: string;
   episodeNumber: number;
   seasonNumber: number;
-  /** TMDB still_path, 16:9 */
+  /** still image, 16:9 */
   thumbnailUrl: string;
   /** "2023-04-02" */
   airDate: string;
@@ -88,7 +120,7 @@ export interface SeasonInfo {
   posterUrl: string;
   year: number;
   episodeCount: number;
-  /** TMDB season overview */
+  /** season synopsis */
   overview: string;
   /** "YYYY-MM-DD" */
   airDate: string;
@@ -178,6 +210,8 @@ export interface MovieDetails {
   fanartUrl: string;
   /** transparent wordmark PNG/SVG */
   logoUrl: string;
+  /** set by the core */
+  logoMeta: LogoMeta | undefined;
 }
 
 export interface SeriesDetails {
@@ -201,6 +235,8 @@ export interface SeriesDetails {
   seasons: SeasonInfo[];
   /** transparent wordmark PNG/SVG */
   logoUrl: string;
+  /** set by the core */
+  logoMeta: LogoMeta | undefined;
 }
 
 export interface EpisodeDetails {
@@ -444,7 +480,7 @@ export interface WarmStreamRequest {
 export interface WarmStreamResponse {
   /** "started" | "joined" (already in flight) | "skipped" */
   outcome: string;
-  /** When skipped: a short reason code (informational only). */
+  /** When skipped: "disabled", "busy", "budget", "browser_busy", "recent". */
   reason: string;
 }
 
@@ -828,6 +864,62 @@ export interface DownloadActionResponse {
   ok: boolean;
 }
 
+/**
+ * ─── My List ("La mia lista") ─────────────────────────────────────────────────
+ * Titles a profile saved to watch later, kept per profile on the server so the
+ * list follows the profile across devices. The client sends the card fields it
+ * already has (from a catalog item or a details page): the server stores them
+ * as-is and never asks the plugin again.
+ */
+export interface MyListItem {
+  pluginId: string;
+  mediaId: string;
+  title: string;
+  posterUrl: string;
+  /** "movie"|"series"|… — CatalogItem.media_type */
+  mediaType: string;
+  year: number;
+  rating: number;
+  fanartUrl: string;
+  logoUrl: string;
+  /** unix seconds, set by the server */
+  addedAt: number;
+  /**
+   * Same keys as CatalogItem.extra (plot, genres, cover_url, anilist_id…):
+   * what a card needs when it is shown again, with no call to the plugin.
+   */
+  extra: { [key: string]: string };
+  /** set by the core */
+  logoMeta: LogoMeta | undefined;
+}
+
+export interface MyListItem_ExtraEntry {
+  key: string;
+  value: string;
+}
+
+/** Empty plugin_id = every plugin, most recently added first. */
+export interface MyListRequest {
+  pluginId: string;
+}
+
+export interface MyListResponse {
+  items: MyListItem[];
+}
+
+/**
+ * in_list = true adds (or refreshes) item, false removes it — only
+ * item.plugin_id/media_id matter then. Idempotent both ways.
+ */
+export interface SetMyListItemRequest {
+  item: MyListItem | undefined;
+  inList: boolean;
+}
+
+export interface SetMyListItemResponse {
+  ok: boolean;
+}
+
 function createBaseCatalogItem(): CatalogItem {
   return {
     id: "",
@@ -847,6 +939,7 @@ function createBaseCatalogItem(): CatalogItem {
     extra: {},
     logoUrl: "",
     bannerUrl: "",
+    logoMeta: undefined,
   };
 }
 
@@ -902,6 +995,9 @@ export const CatalogItem: MessageFns<CatalogItem> = {
     }
     if (message.bannerUrl !== "") {
       writer.uint32(138).string(message.bannerUrl);
+    }
+    if (message.logoMeta !== undefined) {
+      LogoMeta.encode(message.logoMeta, writer.uint32(146).fork()).join();
     }
     return writer;
   },
@@ -1058,6 +1154,14 @@ export const CatalogItem: MessageFns<CatalogItem> = {
             message.bannerUrl = reader.string();
             continue;
           }
+          case 18: {
+            if (tag !== 146) {
+              break;
+            }
+
+            message.logoMeta = LogoMeta.decode(reader, reader.uint32());
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -1100,6 +1204,9 @@ export const CatalogItem: MessageFns<CatalogItem> = {
     );
     message.logoUrl = object.logoUrl ?? "";
     message.bannerUrl = object.bannerUrl ?? "";
+    message.logoMeta = (object.logoMeta !== undefined && object.logoMeta !== null)
+      ? LogoMeta.fromPartial(object.logoMeta)
+      : undefined;
     return message;
   },
 };
@@ -1167,6 +1274,180 @@ export const CatalogItem_ExtraEntry: MessageFns<CatalogItem_ExtraEntry> = {
     const message = createBaseCatalogItem_ExtraEntry();
     message.key = object.key ?? "";
     message.value = object.value ?? "";
+    return message;
+  },
+};
+
+function createBaseLogoMeta(): LogoMeta {
+  return {
+    width: 0,
+    height: 0,
+    lumLow: 0,
+    lumMid: 0,
+    lumHigh: 0,
+    darkShare: 0,
+    lightShare: 0,
+    coverage: 0,
+    color: 0,
+    halo: "",
+  };
+}
+
+export const LogoMeta: MessageFns<LogoMeta> = {
+  encode(message: LogoMeta, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.width !== 0) {
+      writer.uint32(8).int32(message.width);
+    }
+    if (message.height !== 0) {
+      writer.uint32(16).int32(message.height);
+    }
+    if (message.lumLow !== 0) {
+      writer.uint32(29).float(message.lumLow);
+    }
+    if (message.lumMid !== 0) {
+      writer.uint32(37).float(message.lumMid);
+    }
+    if (message.lumHigh !== 0) {
+      writer.uint32(45).float(message.lumHigh);
+    }
+    if (message.darkShare !== 0) {
+      writer.uint32(53).float(message.darkShare);
+    }
+    if (message.lightShare !== 0) {
+      writer.uint32(61).float(message.lightShare);
+    }
+    if (message.coverage !== 0) {
+      writer.uint32(69).float(message.coverage);
+    }
+    if (message.color !== 0) {
+      writer.uint32(72).uint32(message.color);
+    }
+    if (message.halo !== "") {
+      writer.uint32(82).string(message.halo);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): LogoMeta {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseLogoMeta();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 8) {
+              break;
+            }
+
+            message.width = reader.int32();
+            continue;
+          }
+          case 2: {
+            if (tag !== 16) {
+              break;
+            }
+
+            message.height = reader.int32();
+            continue;
+          }
+          case 3: {
+            if (tag !== 29) {
+              break;
+            }
+
+            message.lumLow = reader.float();
+            continue;
+          }
+          case 4: {
+            if (tag !== 37) {
+              break;
+            }
+
+            message.lumMid = reader.float();
+            continue;
+          }
+          case 5: {
+            if (tag !== 45) {
+              break;
+            }
+
+            message.lumHigh = reader.float();
+            continue;
+          }
+          case 6: {
+            if (tag !== 53) {
+              break;
+            }
+
+            message.darkShare = reader.float();
+            continue;
+          }
+          case 7: {
+            if (tag !== 61) {
+              break;
+            }
+
+            message.lightShare = reader.float();
+            continue;
+          }
+          case 8: {
+            if (tag !== 69) {
+              break;
+            }
+
+            message.coverage = reader.float();
+            continue;
+          }
+          case 9: {
+            if (tag !== 72) {
+              break;
+            }
+
+            message.color = reader.uint32();
+            continue;
+          }
+          case 10: {
+            if (tag !== 82) {
+              break;
+            }
+
+            message.halo = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  create<I extends Exact<DeepPartial<LogoMeta>, I>>(base?: I): LogoMeta {
+    return LogoMeta.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<LogoMeta>, I>>(object: I): LogoMeta {
+    const message = createBaseLogoMeta();
+    message.width = object.width ?? 0;
+    message.height = object.height ?? 0;
+    message.lumLow = object.lumLow ?? 0;
+    message.lumMid = object.lumMid ?? 0;
+    message.lumHigh = object.lumHigh ?? 0;
+    message.darkShare = object.darkShare ?? 0;
+    message.lightShare = object.lightShare ?? 0;
+    message.coverage = object.coverage ?? 0;
+    message.color = object.color ?? 0;
+    message.halo = object.halo ?? "";
     return message;
   },
 };
@@ -2320,6 +2601,7 @@ function createBaseMovieDetails(): MovieDetails {
     posterUrl: "",
     fanartUrl: "",
     logoUrl: "",
+    logoMeta: undefined,
   };
 }
 
@@ -2363,6 +2645,9 @@ export const MovieDetails: MessageFns<MovieDetails> = {
     }
     if (message.logoUrl !== "") {
       writer.uint32(106).string(message.logoUrl);
+    }
+    if (message.logoMeta !== undefined) {
+      LogoMeta.encode(message.logoMeta, writer.uint32(114).fork()).join();
     }
     return writer;
   },
@@ -2484,6 +2769,14 @@ export const MovieDetails: MessageFns<MovieDetails> = {
             message.logoUrl = reader.string();
             continue;
           }
+          case 14: {
+            if (tag !== 114) {
+              break;
+            }
+
+            message.logoMeta = LogoMeta.decode(reader, reader.uint32());
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -2514,6 +2807,9 @@ export const MovieDetails: MessageFns<MovieDetails> = {
     message.posterUrl = object.posterUrl ?? "";
     message.fanartUrl = object.fanartUrl ?? "";
     message.logoUrl = object.logoUrl ?? "";
+    message.logoMeta = (object.logoMeta !== undefined && object.logoMeta !== null)
+      ? LogoMeta.fromPartial(object.logoMeta)
+      : undefined;
     return message;
   },
 };
@@ -2535,6 +2831,7 @@ function createBaseSeriesDetails(): SeriesDetails {
     fanartUrl: "",
     seasons: [],
     logoUrl: "",
+    logoMeta: undefined,
   };
 }
 
@@ -2584,6 +2881,9 @@ export const SeriesDetails: MessageFns<SeriesDetails> = {
     }
     if (message.logoUrl !== "") {
       writer.uint32(122).string(message.logoUrl);
+    }
+    if (message.logoMeta !== undefined) {
+      LogoMeta.encode(message.logoMeta, writer.uint32(130).fork()).join();
     }
     return writer;
   },
@@ -2721,6 +3021,14 @@ export const SeriesDetails: MessageFns<SeriesDetails> = {
             message.logoUrl = reader.string();
             continue;
           }
+          case 16: {
+            if (tag !== 130) {
+              break;
+            }
+
+            message.logoMeta = LogoMeta.decode(reader, reader.uint32());
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -2753,6 +3061,9 @@ export const SeriesDetails: MessageFns<SeriesDetails> = {
     message.fanartUrl = object.fanartUrl ?? "";
     message.seasons = object.seasons?.map((e) => SeasonInfo.fromPartial(e)) || [];
     message.logoUrl = object.logoUrl ?? "";
+    message.logoMeta = (object.logoMeta !== undefined && object.logoMeta !== null)
+      ? LogoMeta.fromPartial(object.logoMeta)
+      : undefined;
     return message;
   },
 };
@@ -8357,6 +8668,520 @@ export const DownloadActionResponse: MessageFns<DownloadActionResponse> = {
   },
   fromPartial<I extends Exact<DeepPartial<DownloadActionResponse>, I>>(object: I): DownloadActionResponse {
     const message = createBaseDownloadActionResponse();
+    message.ok = object.ok ?? false;
+    return message;
+  },
+};
+
+function createBaseMyListItem(): MyListItem {
+  return {
+    pluginId: "",
+    mediaId: "",
+    title: "",
+    posterUrl: "",
+    mediaType: "",
+    year: 0,
+    rating: 0,
+    fanartUrl: "",
+    logoUrl: "",
+    addedAt: 0,
+    extra: {},
+    logoMeta: undefined,
+  };
+}
+
+export const MyListItem: MessageFns<MyListItem> = {
+  encode(message: MyListItem, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.pluginId !== "") {
+      writer.uint32(10).string(message.pluginId);
+    }
+    if (message.mediaId !== "") {
+      writer.uint32(18).string(message.mediaId);
+    }
+    if (message.title !== "") {
+      writer.uint32(26).string(message.title);
+    }
+    if (message.posterUrl !== "") {
+      writer.uint32(34).string(message.posterUrl);
+    }
+    if (message.mediaType !== "") {
+      writer.uint32(42).string(message.mediaType);
+    }
+    if (message.year !== 0) {
+      writer.uint32(48).int32(message.year);
+    }
+    if (message.rating !== 0) {
+      writer.uint32(57).double(message.rating);
+    }
+    if (message.fanartUrl !== "") {
+      writer.uint32(66).string(message.fanartUrl);
+    }
+    if (message.logoUrl !== "") {
+      writer.uint32(74).string(message.logoUrl);
+    }
+    if (message.addedAt !== 0) {
+      writer.uint32(80).int64(message.addedAt);
+    }
+    globalThis.Object.entries(message.extra).forEach(([key, value]: [string, string]) => {
+      MyListItem_ExtraEntry.encode({ key: key as any, value }, writer.uint32(90).fork()).join();
+    });
+    if (message.logoMeta !== undefined) {
+      LogoMeta.encode(message.logoMeta, writer.uint32(98).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): MyListItem {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseMyListItem();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.pluginId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.mediaId = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.title = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.posterUrl = reader.string();
+            continue;
+          }
+          case 5: {
+            if (tag !== 42) {
+              break;
+            }
+
+            message.mediaType = reader.string();
+            continue;
+          }
+          case 6: {
+            if (tag !== 48) {
+              break;
+            }
+
+            message.year = reader.int32();
+            continue;
+          }
+          case 7: {
+            if (tag !== 57) {
+              break;
+            }
+
+            message.rating = reader.double();
+            continue;
+          }
+          case 8: {
+            if (tag !== 66) {
+              break;
+            }
+
+            message.fanartUrl = reader.string();
+            continue;
+          }
+          case 9: {
+            if (tag !== 74) {
+              break;
+            }
+
+            message.logoUrl = reader.string();
+            continue;
+          }
+          case 10: {
+            if (tag !== 80) {
+              break;
+            }
+
+            message.addedAt = longToNumber(reader.int64());
+            continue;
+          }
+          case 11: {
+            if (tag !== 90) {
+              break;
+            }
+
+            const entry11 = MyListItem_ExtraEntry.decode(reader, reader.uint32());
+            if (entry11.value !== undefined) {
+              message.extra[entry11.key] = entry11.value;
+            }
+            continue;
+          }
+          case 12: {
+            if (tag !== 98) {
+              break;
+            }
+
+            message.logoMeta = LogoMeta.decode(reader, reader.uint32());
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  create<I extends Exact<DeepPartial<MyListItem>, I>>(base?: I): MyListItem {
+    return MyListItem.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<MyListItem>, I>>(object: I): MyListItem {
+    const message = createBaseMyListItem();
+    message.pluginId = object.pluginId ?? "";
+    message.mediaId = object.mediaId ?? "";
+    message.title = object.title ?? "";
+    message.posterUrl = object.posterUrl ?? "";
+    message.mediaType = object.mediaType ?? "";
+    message.year = object.year ?? 0;
+    message.rating = object.rating ?? 0;
+    message.fanartUrl = object.fanartUrl ?? "";
+    message.logoUrl = object.logoUrl ?? "";
+    message.addedAt = object.addedAt ?? 0;
+    message.extra = (globalThis.Object.entries(object.extra ?? {}) as [string, string][]).reduce(
+      (acc: { [key: string]: string }, [key, value]: [string, string]) => {
+        if (value !== undefined) {
+          acc[key] = globalThis.String(value);
+        }
+        return acc;
+      },
+      {},
+    );
+    message.logoMeta = (object.logoMeta !== undefined && object.logoMeta !== null)
+      ? LogoMeta.fromPartial(object.logoMeta)
+      : undefined;
+    return message;
+  },
+};
+
+function createBaseMyListItem_ExtraEntry(): MyListItem_ExtraEntry {
+  return { key: "", value: "" };
+}
+
+export const MyListItem_ExtraEntry: MessageFns<MyListItem_ExtraEntry> = {
+  encode(message: MyListItem_ExtraEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.key !== "") {
+      writer.uint32(10).string(message.key);
+    }
+    if (message.value !== "") {
+      writer.uint32(18).string(message.value);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): MyListItem_ExtraEntry {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseMyListItem_ExtraEntry();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.key = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.value = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  create<I extends Exact<DeepPartial<MyListItem_ExtraEntry>, I>>(base?: I): MyListItem_ExtraEntry {
+    return MyListItem_ExtraEntry.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<MyListItem_ExtraEntry>, I>>(object: I): MyListItem_ExtraEntry {
+    const message = createBaseMyListItem_ExtraEntry();
+    message.key = object.key ?? "";
+    message.value = object.value ?? "";
+    return message;
+  },
+};
+
+function createBaseMyListRequest(): MyListRequest {
+  return { pluginId: "" };
+}
+
+export const MyListRequest: MessageFns<MyListRequest> = {
+  encode(message: MyListRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.pluginId !== "") {
+      writer.uint32(10).string(message.pluginId);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): MyListRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseMyListRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.pluginId = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  create<I extends Exact<DeepPartial<MyListRequest>, I>>(base?: I): MyListRequest {
+    return MyListRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<MyListRequest>, I>>(object: I): MyListRequest {
+    const message = createBaseMyListRequest();
+    message.pluginId = object.pluginId ?? "";
+    return message;
+  },
+};
+
+function createBaseMyListResponse(): MyListResponse {
+  return { items: [] };
+}
+
+export const MyListResponse: MessageFns<MyListResponse> = {
+  encode(message: MyListResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    for (const v of message.items) {
+      MyListItem.encode(v!, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): MyListResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseMyListResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.items.push(MyListItem.decode(reader, reader.uint32()));
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  create<I extends Exact<DeepPartial<MyListResponse>, I>>(base?: I): MyListResponse {
+    return MyListResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<MyListResponse>, I>>(object: I): MyListResponse {
+    const message = createBaseMyListResponse();
+    message.items = object.items?.map((e) => MyListItem.fromPartial(e)) || [];
+    return message;
+  },
+};
+
+function createBaseSetMyListItemRequest(): SetMyListItemRequest {
+  return { item: undefined, inList: false };
+}
+
+export const SetMyListItemRequest: MessageFns<SetMyListItemRequest> = {
+  encode(message: SetMyListItemRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.item !== undefined) {
+      MyListItem.encode(message.item, writer.uint32(10).fork()).join();
+    }
+    if (message.inList !== false) {
+      writer.uint32(16).bool(message.inList);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): SetMyListItemRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseSetMyListItemRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.item = MyListItem.decode(reader, reader.uint32());
+            continue;
+          }
+          case 2: {
+            if (tag !== 16) {
+              break;
+            }
+
+            message.inList = reader.bool();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  create<I extends Exact<DeepPartial<SetMyListItemRequest>, I>>(base?: I): SetMyListItemRequest {
+    return SetMyListItemRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<SetMyListItemRequest>, I>>(object: I): SetMyListItemRequest {
+    const message = createBaseSetMyListItemRequest();
+    message.item = (object.item !== undefined && object.item !== null)
+      ? MyListItem.fromPartial(object.item)
+      : undefined;
+    message.inList = object.inList ?? false;
+    return message;
+  },
+};
+
+function createBaseSetMyListItemResponse(): SetMyListItemResponse {
+  return { ok: false };
+}
+
+export const SetMyListItemResponse: MessageFns<SetMyListItemResponse> = {
+  encode(message: SetMyListItemResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.ok !== false) {
+      writer.uint32(8).bool(message.ok);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): SetMyListItemResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseSetMyListItemResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 8) {
+              break;
+            }
+
+            message.ok = reader.bool();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  create<I extends Exact<DeepPartial<SetMyListItemResponse>, I>>(base?: I): SetMyListItemResponse {
+    return SetMyListItemResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<SetMyListItemResponse>, I>>(object: I): SetMyListItemResponse {
+    const message = createBaseSetMyListItemResponse();
     message.ok = object.ok ?? false;
     return message;
   },

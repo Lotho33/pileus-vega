@@ -15,9 +15,11 @@ import {ContextMenu, MenuAction} from '../components/ContextMenu';
 import {FocusButton} from '../components/FocusButton';
 import {InfoPopup} from '../details/InfoPopup';
 import {mycelium} from '../core/api';
+import {canSave, myList, myListItemFrom, myListMessage, useMyList} from '../core/myList';
 import {applyCatalogPrefs, applyPluginPrefs, isPluginReady, parsePluginPrefs} from '../core/prefs';
 import type {CatalogDef, ContinueWatchingItem, PluginInfo} from '../gen/media';
 import {useHomeLayout} from '../home/layout';
+import {MyListScreen} from '../home/MyListScreen';
 import {PluginHome} from '../home/PluginHome';
 import type {CardModel, OpenTarget} from '../home/model';
 import {PluginNav} from '../home/PluginNav';
@@ -34,6 +36,8 @@ const EXIT_CONFIRM_MS = 2000;
 // explicit focus can't leave a still-mounted focus trap. The card the native
 // engine picks meanwhile is ignored by the row (useFocusGate).
 const REFOCUS_AFTER_HIDE_MS = 50;
+const MY_LIST = 'La mia lista';
+const SETTINGS = 'Impostazioni';
 
 function NotReady({plugin}: {plugin: PluginInfo}) {
   const text = plugin.needsConfig
@@ -68,7 +72,10 @@ export function HomeScreen() {
   const [navOpen, setNavOpen] = useState(false);
   const [refocus, setRefocus] = useState({token: 0, restore: false});
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [backFromSettings, setBackFromSettings] = useState(false);
+  /** The nav reopens on this action (back from settings or La mia lista). */
+  const [backTo, setBackTo] = useState('');
+  const [myListOpen, setMyListOpen] = useState(false);
+  const [pageEmpty, setPageEmpty] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [fullSearch, setFullSearch] = useState<{query: string} | null>(null);
   const [stack, setStack] = useState<OpenTarget[]>([]);
@@ -82,6 +89,16 @@ export function HomeScreen() {
   const lastBack = useRef(0);
 
   const prefs = useMemo(() => parsePluginPrefs(profile?.preferencesJson ?? ''), [profile]);
+  const {supported: myListSupported} = useMyList();
+
+  // La mia lista belongs to the profile: reloaded whenever it changes (the
+  // store drops an answer meant for the profile just left).
+  const profileId = profile?.profileId ?? '';
+  useEffect(() => {
+    if (profileId) {
+      myList.refresh();
+    }
+  }, [profileId]);
 
   const load = useCallback(async () => {
     setError('');
@@ -161,23 +178,48 @@ export function HomeScreen() {
     } else if (stack.length) {
       setPlayer(null);
       setDetailsRefocus(t => t + 1);
-    } else if (fullSearch) {
+    } else if (fullSearch || myListOpen) {
       setPlayer(null);
     } else {
       refocusRow(true, () => setPlayer(null));
     }
-  }, [settingsOpen, stack.length, fullSearch, refocusRow, refreshCw]);
+  }, [settingsOpen, stack.length, fullSearch, myListOpen, refocusRow, refreshCw]);
 
   const closeLive = useCallback(() => {
-    if (stack.length || fullSearch) {
+    if (stack.length || fullSearch || myListOpen) {
       setLive(null);
     } else {
       refocusRow(true, () => setLive(null));
     }
-  }, [stack.length, fullSearch, refocusRow]);
+  }, [stack.length, fullSearch, myListOpen, refocusRow]);
 
-  const closeMenu = useCallback(() => refocusRow(true, () => setMenu(null)), [refocusRow]);
-  const closeInfo = useCallback(() => refocusRow(true, () => setInfo(null)), [refocusRow]);
+  // Over La mia lista the page puts focus back itself (it was "covered").
+  const closeMenu = useCallback(
+    () => (myListOpen ? setMenu(null) : refocusRow(true, () => setMenu(null))),
+    [myListOpen, refocusRow],
+  );
+  const closeInfo = useCallback(
+    () => (myListOpen ? setInfo(null) : refocusRow(true, () => setInfo(null))),
+    [myListOpen, refocusRow],
+  );
+
+  const toggleMyList = useCallback((card: CardModel) => {
+    const o = card.open;
+    if (!o.item) {
+      return;
+    }
+    myList.toggle(myListItemFrom(o.pluginId, o.item, {mediaType: o.mediaType})).then(r => setToast(myListMessage(r)));
+  }, []);
+
+  const openMyList = useCallback(() => {
+    setNavOpen(false);
+    setMyListOpen(true);
+  }, []);
+  const closeMyList = useCallback(() => {
+    setMyListOpen(false);
+    setBackTo(MY_LIST);
+    setNavOpen(true);
+  }, []);
 
   // "Riproduci" from the card menu: the first source, like _fetchAndPlay.
   const playFirstSource = useCallback(
@@ -274,6 +316,17 @@ export function HomeScreen() {
         });
       }
     }
+    if (myListSupported && canSave(mt) && card.open.item) {
+      const saved = myList.contains(card.open.pluginId, card.open.mediaId);
+      out.push({
+        icon: saved ? 'bookmark' : 'bookmarkBorder',
+        label: saved ? 'Rimuovi da La mia lista' : 'Aggiungi a La mia lista',
+        onPress: () => {
+          closeMenu();
+          toggleMyList(card);
+        },
+      });
+    }
     if (def?.liveRefreshable) {
       out.push({
         icon: 'refresh',
@@ -290,7 +343,7 @@ export function HomeScreen() {
       });
     }
     return out;
-  }, [menu, closeMenu, playFirstSource, refreshCw]);
+  }, [menu, closeMenu, playFirstSource, refreshCw, myListSupported, toggleMyList]);
 
   const openMenu = useCallback((card: CardModel, def?: CatalogDef) => {
     const mt = card.open.mediaType;
@@ -304,12 +357,19 @@ export function HomeScreen() {
 
   const popDetails = useCallback(() => {
     const last = stack.length === 1;
-    if (last && !fullSearch) {
+    if (last && !fullSearch && !myListOpen) {
       refocusRow(true, () => setStack(st => st.slice(0, -1)));
     } else {
       setStack(st => st.slice(0, -1));
     }
-  }, [stack.length, fullSearch, refocusRow]);
+  }, [stack.length, fullSearch, myListOpen, refocusRow]);
+
+  // A server without La mia lista: its page can't stay open.
+  useEffect(() => {
+    if (!myListSupported && myListOpen) {
+      closeMyList();
+    }
+  }, [myListSupported, myListOpen, closeMyList]);
 
   const plugin = plugins?.length ? plugins[Math.min(selected, plugins.length - 1)] : undefined;
   const ready = plugin ? isPluginReady(plugin) : false;
@@ -322,7 +382,7 @@ export function HomeScreen() {
   // newer, so it steps aside while they're up).
   useEffect(() => {
     const sub = keplerBack.addEventListener('hardwareBackPress', () => {
-      if (settingsOpen || fullSearch || stack.length || player || live || menu || info) {
+      if (settingsOpen || fullSearch || myListOpen || stack.length || player || live || menu || info) {
         return false;
       }
       if (searchOpen) {
@@ -331,6 +391,12 @@ export function HomeScreen() {
       }
       if (canCloseNav) {
         closeNav();
+        return true;
+      }
+      // "Nessun contenuto": Back goes to the menu, like ←.
+      if (pageEmpty && ready) {
+        setBackTo('');
+        setNavOpen(true);
         return true;
       }
       const now = Date.now();
@@ -343,7 +409,7 @@ export function HomeScreen() {
       return true;
     });
     return () => sub.remove();
-  }, [settingsOpen, fullSearch, stack.length, player, live, menu, info, searchOpen, canCloseNav, closeNav, closeSearch, keplerBack]);
+  }, [settingsOpen, fullSearch, myListOpen, stack.length, player, live, menu, info, searchOpen, canCloseNav, pageEmpty, ready, closeNav, closeSearch, keplerBack]);
 
   useEffect(() => {
     if (!toast) {
@@ -355,7 +421,7 @@ export function HomeScreen() {
 
   // → closes the nav; ← at its edge does nothing (focus is trapped in it).
   useTVEventHandler(evt => {
-    if (!canCloseNav || settingsOpen || evt.eventKeyAction === 1) {
+    if (!canCloseNav || settingsOpen || myListOpen || evt.eventKeyAction === 1) {
       return;
     }
     if (evt.eventType === 'right') {
@@ -398,16 +464,26 @@ export function HomeScreen() {
           L={L}
           navOpen={navOpen}
           inactive={
-            navOpen || settingsOpen || searchOpen || !!fullSearch || stack.length > 0 || !!player || !!live || !!menu || !!info
+            navOpen ||
+            settingsOpen ||
+            myListOpen ||
+            searchOpen ||
+            !!fullSearch ||
+            stack.length > 0 ||
+            !!player ||
+            !!live ||
+            !!menu ||
+            !!info
           }
           refocus={refocus}
           onOpenNav={() => {
-            setBackFromSettings(false);
+            setBackTo('');
             setNavOpen(true);
           }}
           onOpenSearch={() => setSearchOpen(true)}
           onOpenItem={openItem}
           onCardMenu={openMenu}
+          onEmptyChange={setPageEmpty}
         />
       ) : (
         <NotReady plugin={plugin} />
@@ -424,18 +500,21 @@ export function HomeScreen() {
         />
       ) : null}
       {/* Same plain scrim as home_view.dart while the nav is out. */}
-      {navOpen && ready && !settingsOpen ? <View style={styles.scrim} pointerEvents="none" /> : null}
-      {(navOpen || !ready) && !settingsOpen ? (
+      {navOpen && ready && !settingsOpen && !myListOpen ? <View style={styles.scrim} pointerEvents="none" /> : null}
+      {(navOpen || !ready) && !settingsOpen && !myListOpen ? (
         <PluginNav
           plugins={plugins}
           selected={selected}
           L={L}
-          focusAction={backFromSettings}
+          focusAction={backTo}
           onSelect={i => {
             setSelected(i);
             closeNav();
           }}
-          actions={[{label: 'Impostazioni', icon: 'settings', onPress: () => setSettingsOpen(true)}]}
+          actions={[
+            ...(myListSupported ? [{label: MY_LIST, icon: 'bookmark' as const, onPress: openMyList}] : []),
+            {label: SETTINGS, icon: 'settings', onPress: () => setSettingsOpen(true)},
+          ]}
         />
       ) : null}
       {settingsOpen ? (
@@ -443,9 +522,18 @@ export function HomeScreen() {
           onPlay={setPlayer}
           refocus={settingsRefocus}
           onClose={() => {
-            setBackFromSettings(true);
+            setBackTo(SETTINGS);
             setSettingsOpen(false);
           }}
+        />
+      ) : null}
+      {myListOpen ? (
+        <MyListScreen
+          L={L}
+          covered={stack.length > 0 || !!player || !!live || !!menu || !!info}
+          onClose={closeMyList}
+          onOpenItem={openItem}
+          onCardMenu={card => openMenu(card)}
         />
       ) : null}
       {fullSearch && ready ? (
@@ -467,6 +555,7 @@ export function HomeScreen() {
           onPlay={setPlayer}
           refocus={detailsRefocus}
           covered={!!player || !!live}
+          onToast={setToast}
           canDownload={pluginSupportsDownload(plugins.find(p => p.pluginId === stack[stack.length - 1].pluginId))}
         />
       ) : null}

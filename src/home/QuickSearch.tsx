@@ -14,14 +14,16 @@ import {mycelium} from '../core/api';
 import {RecentSearchRecorder, recentSearches} from '../core/recentSearches';
 import type {PluginInfo} from '../gen/media';
 import {colors, scaledStyles} from '../theme';
-import {PosterCard} from './Cards';
+import {LandscapeCard, PosterCard} from './Cards';
 import type {HomeLayout} from './layout';
-import {CardModel, catalogCard} from './model';
+import {CardModel, CardVariant, catalogCard, searchVariant} from './model';
 
 const MIN_QUERY = 2;
 const DEBOUNCE_MS = 350;
 const PREVIEW_COUNT = 8;
 const VISIBLE_RESULTS = 4;
+/** Mostly live results: 16:9 cards, 3 slots. */
+const VISIBLE_LIVE = 3;
 
 function SquareButton({
   icon,
@@ -73,11 +75,13 @@ const PEEK = 0.16;
 
 function Results({
   cards,
+  variant,
   width,
   maxCardH,
   onOpen,
 }: {
   cards: CardModel[];
+  variant: CardVariant;
   width: number;
   maxCardH: number;
   onOpen: (card: CardModel) => void;
@@ -86,15 +90,17 @@ function Results({
   const [focused, setFocused] = useState(0);
   const pad = Math.round(width * (56 / 1920));
   const gap = Math.round(width * (20 / 1920));
-  const cardW = Math.round(
-    Math.min((width - pad * 2 - gap * VISIBLE_RESULTS) / (VISIBLE_RESULTS + PEEK), maxCardH / 1.5),
-  );
-  const cardH = Math.round(cardW * 1.5);
+  const live = variant === 'landscape';
+  const slots = live ? VISIBLE_LIVE : VISIBLE_RESULTS;
+  const ratio = live ? 9 / 16 : 1.5;
+  const cardW = Math.round(Math.min((width - pad * 2 - gap * slots) / (slots + PEEK), maxCardH / ratio));
+  const cardH = Math.round(cardW * ratio);
+  const Card = live ? LandscapeCard : PosterCard;
   const stride = cardW + gap;
   const title = cards[focused]?.title ?? cards[0]?.title ?? '';
   return (
     <View>
-      <Text style={[styles.resultTitle, {fontSize: cardW * 0.09}]} numberOfLines={1}>
+      <Text style={[styles.resultTitle, {fontSize: width * 0.0195}]} numberOfLines={1}>
         {title}
       </Text>
       <FlatList
@@ -109,14 +115,14 @@ function Results({
         contentContainerStyle={{paddingHorizontal: pad}}
         renderItem={({item, index}) => (
           <View style={[styles.cell, {width: stride}]}>
-            <PosterCard
+            <Card
               card={item}
               width={cardW}
               height={cardH}
               preferred={false}
               onFocus={() => {
                 setFocused(index);
-                const first = Math.max(0, Math.min(index, cards.length - VISIBLE_RESULTS));
+                const first = Math.max(0, Math.min(index, cards.length - slots));
                 list.current?.scrollToOffset({offset: stride * first, animated: true});
               }}
               onPress={() => onOpen(item)}
@@ -202,6 +208,7 @@ export function QuickSearch({
 }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<CardModel[] | null>(null);
+  const [variant, setVariant] = useState<CardVariant>('poster');
   /** Results past the preview (the "+N" of the see-all button). */
   const [more, setMore] = useState(0);
   const [pending, setPending] = useState(false);
@@ -248,9 +255,11 @@ export function QuickSearch({
         const r = await mycelium.search(plugin.pluginId, q);
         if (id === seq.current) {
           const seen = new Set<string>();
+          const v = searchVariant(r.items);
           const all = r.items
-            .map(i => catalogCard(plugin.pluginId, i, 'poster'))
+            .map(i => catalogCard(plugin.pluginId, i, v))
             .filter(c => !seen.has(c.key) && !!seen.add(c.key));
+          setVariant(v);
           setResults(all.slice(0, PREVIEW_COUNT));
           setMore(Math.max(0, all.length - PREVIEW_COUNT));
           recorder.settled(plugin.pluginId, q, all.length > 0);
@@ -330,7 +339,7 @@ export function QuickSearch({
               <ActivityIndicator color={colors.primary} style={{marginVertical: L.H * 0.02}} />
             ) : results && results.length ? (
               <>
-                <Results cards={results} width={innerW} maxCardH={L.H * 0.3} onOpen={openItem} />
+                <Results cards={results} variant={variant} width={innerW} maxCardH={L.H * 0.3} onOpen={openItem} />
                 <SeeAllButton
                   label={more > 0 ? `Vedi tutti i risultati (+${more})` : 'Vedi tutti i risultati'}
                   fontSize={L.H * (30 / 1080)}
