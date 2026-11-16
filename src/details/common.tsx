@@ -20,7 +20,7 @@ export function Backdrop({url, W, shade}: {url: string; W: number; shade: Gradie
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       {url ? (
-        <Image source={{uri: backdropSrc(url, Math.round(W))}} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        <Image source={{uri: backdropSrc(url, Math.round(W), true)}} style={StyleSheet.absoluteFill} resizeMode="cover" />
       ) : null}
       <Gradient name={shade} direction="toBottom" />
     </View>
@@ -47,7 +47,7 @@ export function Poster({url, title, width}: {url: string; title: string; width: 
   return (
     <View style={[styles.poster, {width, height: width * 1.5}]}>
       {url ? (
-        <Image source={{uri: posterSrc(url, Math.round(width))}} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        <Image source={{uri: posterSrc(url, Math.round(width), true)}} style={StyleSheet.absoluteFill} resizeMode="cover" />
       ) : (
         <Text style={styles.posterTitle} numberOfLines={4}>
           {title}
