@@ -33,27 +33,67 @@ const diskReady: Promise<void> = AsyncStorage.getItem(ICON_KEY)
     }
   })
   .catch(() => {});
-const checked = new Set<string>();
+// One revalidation per plugin per session, shared by every caller (the
+// prefetch from the home and each PluginIcon), like plugin_nav.dart's
+// _pluginSvgFetches.
+const fetches = new Map<string, Promise<string | null>>();
 
 function saveIcons() {
   AsyncStorage.setItem(ICON_KEY, JSON.stringify(Object.fromEntries(iconCache))).catch(() => {});
 }
 
+const ICON_TIMEOUT_MS = 4000;
+
 /** The server's icon: its body, '' when it has none, null when unreachable. */
 async function fetchIcon(pluginId: string): Promise<string | null> {
   try {
-    const r = await fetch(`${mycelium.origin}/plugin-icon/${encodeURIComponent(pluginId)}`);
+    const r = await Promise.race([
+      fetch(`${mycelium.origin}/plugin-icon/${encodeURIComponent(pluginId)}`),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), ICON_TIMEOUT_MS)),
+    ]);
     if (r.status === 404) {
       return '';
     }
     if (!r.ok) {
       return null;
     }
+    const type = r.headers.get('content-type') ?? '';
     const body = await r.text();
-    return body.includes('<svg') ? monochromeSvg(body) : '';
+    return type.includes('svg') || body.includes('<svg') ? monochromeSvg(body) : '';
   } catch {
     return null;
   }
+}
+
+/** Memory/disk copy refreshed from the server once per session. */
+function revalidate(pluginId: string): Promise<string | null> {
+  let p = fetches.get(pluginId);
+  if (!p) {
+    p = fetchIcon(pluginId).then(fresh => {
+      if (fresh === null) {
+        // Unreachable: keep what we have, a later call tries again.
+        fetches.delete(pluginId);
+        return null;
+      }
+      if (iconCache.get(pluginId) !== fresh) {
+        iconCache.set(pluginId, fresh);
+        saveIcons();
+      }
+      return fresh;
+    });
+    fetches.set(pluginId, p);
+  }
+  return p;
+}
+
+/**
+ * Called by the home as soon as it has the plugin list: the side panel is
+ * mounted only when it opens, so without this the very first opening (a
+ * fresh install, a new plugin, a server change) drew the placeholders while
+ * the icons downloaded. pileus-player resolves them when the home builds.
+ */
+export function prefetchPluginIcons(pluginIds: string[]) {
+  diskReady.then(() => pluginIds.forEach(id => revalidate(id)));
 }
 
 const PluginIcon = memo(function PluginIcon({pluginId, size, color}: {pluginId: string; size: number; color: string}) {
@@ -67,21 +107,8 @@ const PluginIcon = memo(function PluginIcon({pluginId, size, color}: {pluginId: 
           setXml(iconCache.get(pluginId));
         }
       }
-      if (checked.has(pluginId)) {
-        return;
-      }
-      checked.add(pluginId);
-      const fresh = await fetchIcon(pluginId);
-      if (fresh === null) {
-        // Unreachable: keep what we have, try again next time.
-        checked.delete(pluginId);
-        return;
-      }
-      if (iconCache.get(pluginId) !== fresh) {
-        iconCache.set(pluginId, fresh);
-        saveIcons();
-      }
-      if (alive) {
+      const fresh = await revalidate(pluginId);
+      if (alive && fresh !== null) {
         setXml(fresh);
       }
     })();
@@ -93,7 +120,9 @@ const PluginIcon = memo(function PluginIcon({pluginId, size, color}: {pluginId: 
   if (xml) {
     return <SvgXml xml={xml} width={size} height={size} color={color} />;
   }
-  return <View style={[styles.iconFallback, {width: size, height: size, borderColor: color}]} />;
+  // While loading, or when the plugin ships none: a generic glyph, as
+  // plugin_nav.dart's Icons.extension_rounded.
+  return <Icon name="extension" size={size} color={color} />;
 });
 
 interface NavItemProps {
@@ -210,6 +239,5 @@ const styles = scaledStyles({
   itemSelected: {backgroundColor: 'rgba(124,106,247,0.14)'},
   itemFocused: {backgroundColor: colors.primary},
   itemText: {fontWeight: '600', flexShrink: 1},
-  iconFallback: {borderRadius: 6, borderWidth: 2},
   divider: {height: 1, backgroundColor: colors.border},
 });

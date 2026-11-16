@@ -11,9 +11,10 @@
 // onPlay to the PlayerScreen.
 
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {ActivityIndicator, StyleSheet, Text, View} from 'react-native';
+import {StyleSheet, Text, View} from 'react-native';
 import {TVFocusGuideView, useKeplerBackHandler} from '@amazon-devices/react-native-kepler';
 import {FocusButton} from '../components/FocusButton';
+import {DetailsSkeleton} from '../components/Skeleton';
 import {mycelium} from '../core/api';
 import * as perf from '../core/perf';
 import {focusSoon} from '../core/focus';
@@ -149,11 +150,7 @@ export function DetailsScreen({
       </View>
     );
   } else if (!res?.item) {
-    body = (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.textHigh} />
-      </View>
-    );
+    body = <DetailsSkeleton W={L.W} H={L.H} />;
   } else {
     const item = res.item;
     const seasons = res.series?.seasons ?? [];

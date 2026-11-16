@@ -19,7 +19,7 @@ const logoSrc = (logo: string, L: HomeLayout) => posterSrc(logoUrlOnly(logo), L.
 export function heroImageUrls(item: HeroItem, L: HomeLayout): string[] {
   const out: string[] = [];
   if (item.background) {
-    out.push(backdropSrc(item.background, Math.round(L.W)));
+    out.push(backdropSrc(item.background, Math.round(L.W), true));
   }
   if (item.logo) {
     out.push(logoSrc(item.logo, L));
@@ -141,7 +141,7 @@ const HeroBackground = memo(function HeroBackground({url, W}: {url: string; W: n
       {layers.map(layer => (
         <Animated.Image
           key={layer.url}
-          source={{uri: backdropSrc(layer.url, Math.round(W))}}
+          source={{uri: backdropSrc(layer.url, Math.round(W), true)}}
           style={[StyleSheet.absoluteFill, {opacity: layer.opacity}]}
           resizeMode="cover"
           onLoad={() => onLoad(layer)}
