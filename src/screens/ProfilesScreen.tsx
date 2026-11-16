@@ -44,11 +44,15 @@ const ProfileTile = forwardRef<View, {p: ProfileResponse; preferred: boolean; on
   },
 );
 
-const AddProfileTile = forwardRef<View, {onPress: () => void}>(function AddProfileTile({onPress}, ref) {
+const AddProfileTile = forwardRef<View, {onPress: () => void; preferred?: boolean}>(function AddProfileTile(
+  {onPress, preferred},
+  ref,
+) {
   const [focused, setFocused] = useState(false);
   return (
     <Pressable
       ref={ref}
+      hasTVPreferredFocus={preferred}
       accessibilityLabel="Nuovo profilo"
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
@@ -175,7 +179,11 @@ export function ProfilesScreen() {
       <CenteredScreen title="Chi sta guardando?" error={error}>
         {profiles === null ? (
           <ActivityIndicator size="large" color={colors.primary} />
-        ) : profiles.length === 0 ? (
+        ) : profiles.length === 0 && error ? (
+          // The list couldn't be read. With none on the server (a new
+          // install, or the last one deleted) the row below still offers
+          // "Nuovo profilo", as _ProfileRow always does in pileus-player:
+          // without it there was no way past this screen.
           <View style={styles.row}>
             <FocusButton label="Riprova" primary onPress={load} hasTVPreferredFocus />
             <FocusButton label="Cambia server" onPress={changeServer} />
@@ -198,7 +206,11 @@ export function ProfilesScreen() {
                   onPress={() => choose(p)}
                 />
               ))}
-              <AddProfileTile ref={addRef} onPress={() => setCreating({step: 'name'})} />
+              <AddProfileTile
+                ref={addRef}
+                preferred={profiles.length === 0}
+                onPress={() => setCreating({step: 'name'})}
+              />
             </View>
             <FocusButton label="Cambia server" onPress={changeServer} style={{marginTop: px(space.l)}} />
           </>

@@ -87,6 +87,32 @@ export function computeLayout(W: number, H: number): HomeLayout {
   };
 }
 
+/** Focus scale of a card (AppScale.focusScaleCard). */
+export const FOCUS_SCALE_CARD = 1.07;
+/** Share of an 8th poster showing past the last whole one (_kPeekFraction). */
+const PEEK_FRACTION = 0.16;
+
+/**
+ * The geometry one home row draws its cards with, as pileus-player's:
+ * - poster rows (fixed_carousel.dart): seven cards plus 16% of an eighth,
+ *   which peeks in at the right edge so the row reads as scrollable — a bit
+ *   smaller than the seven-across `posterW` the strip's height is based on;
+ * - Continue Watching (continue_watching.dart): 16:9 cards as tall as that
+ *   seven-across poster, with the gap and the margin widened by how much
+ *   more a wide card grows on focus than a poster does, so a focused card
+ *   never overlaps its neighbour and its edge lines up with the rows below.
+ */
+export function homeRowLayout(L: HomeLayout, variant: 'poster' | 'landscape'): HomeLayout {
+  if (variant === 'landscape') {
+    const grow = (FOCUS_SCALE_CARD - 1) / 2;
+    const overflowCw = L.landscapeW * grow;
+    const overflowPoster = L.posterW * grow;
+    return {...L, hPad: L.hPad + (overflowCw - overflowPoster), gap: L.gap + overflowCw};
+  }
+  const posterW = (L.W - L.hPad * 2 - L.gap * VISIBLE_CARDS) / (VISIBLE_CARDS + PEEK_FRACTION);
+  return {...L, posterW, posterH: posterW * 1.5};
+}
+
 /**
  * Card titles under posters (app_scale.dart caption: 21/1080 of the height,
  * 11–30 units).

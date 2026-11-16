@@ -22,7 +22,7 @@ import {useHomeLayout} from '../home/layout';
 import {MyListScreen} from '../home/MyListScreen';
 import {PluginHome} from '../home/PluginHome';
 import type {CardModel, OpenTarget} from '../home/model';
-import {PluginNav} from '../home/PluginNav';
+import {PluginNav, prefetchPluginIcons} from '../home/PluginNav';
 import {QuickSearch} from '../home/QuickSearch';
 import {errorText, useAuth} from '../state/auth';
 import {SearchScreen} from '../search/SearchScreen';
@@ -109,6 +109,7 @@ export function HomeScreen() {
         mycelium.getContinueWatching(0).catch(() => [] as ContinueWatchingItem[]),
       ]);
       setPlugins(applyPluginPrefs(list, prefs));
+      prefetchPluginIcons(list.map(p => p.pluginId));
       setCw(items);
     } catch (e) {
       setError(errorText(e));
@@ -186,7 +187,12 @@ export function HomeScreen() {
   }, [settingsOpen, stack.length, fullSearch, myListOpen, refocusRow, refreshCw]);
 
   const closeLive = useCallback(() => {
-    if (stack.length || fullSearch || myListOpen) {
+    if (stack.length) {
+      // The details page under it doesn't take focus back by itself when
+      // uncovered (only on a refocus token), like after the player.
+      setLive(null);
+      setDetailsRefocus(t => t + 1);
+    } else if (fullSearch || myListOpen) {
       setLive(null);
     } else {
       refocusRow(true, () => setLive(null));

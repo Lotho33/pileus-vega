@@ -4,6 +4,7 @@
 import * as auth from '../gen/auth';
 import * as media from '../gen/media';
 import {CallOptions, GrpcError, GrpcStatus, GrpcWebClient} from './grpcWeb';
+import {setImageProxyBase} from './images';
 
 export interface ServerInfo {
   name: string;
@@ -50,6 +51,7 @@ export class Mycelium {
 
   setOrigin(origin: string) {
     this.rpc.setOrigin(origin);
+    setImageProxyBase(origin);
     const m = /^(https?):\/\/([^/]+)/.exec(origin);
     this.creds.httpScheme = m?.[1] ?? 'http';
     this.creds.httpHost = m?.[2] ?? '';

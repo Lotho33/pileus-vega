@@ -5,9 +5,10 @@
 // cards; live rows stay on their first page (refreshed every minute).
 
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {ActivityIndicator, AppState, Image, StyleSheet, Text, View} from 'react-native';
+import {AppState, Image, StyleSheet, Text, View} from 'react-native';
 import {useTVEventHandler} from '@amazon-devices/react-native-kepler';
 import {FocusButton} from '../components/FocusButton';
+import {RowSkeleton} from '../components/Skeleton';
 import {mycelium} from '../core/api';
 import {logoPending} from '../core/logo';
 import {HOME_ROW_MAX_ITEMS, showsMoreSlot} from '../core/paging';
@@ -19,7 +20,7 @@ import {colors, scaledStyles} from '../theme';
 import {CarouselRow, FocusRequest} from './CarouselRow';
 import {cachedCwHero, fetchCwHero} from './cwHero';
 import {createHeroStore, HeroFromStore, heroImageUrls} from './Hero';
-import type {HomeLayout} from './layout';
+import {homeRowLayout, HomeLayout} from './layout';
 import {CardModel, CardVariant, catalogCard, cwCard, variantFor} from './model';
 import {SectionHeader} from './SectionHeader';
 
@@ -67,6 +68,22 @@ const HOLD_SETTLE_FALLBACK_MS = 400;
 // long after, once per row (discovery_bloc.dart's logoMetaRetryDelay), so a
 // dark logo gets its halo in this session.
 const LOGO_META_RETRY_MS = 6000;
+
+/**
+ * A row that failed to load (ErrorRetryView in pileus-player): "Riprova" is
+ * its focus point. A bare message left the row with nothing focusable, so
+ * focus had nowhere to go and the row could only be retried by restarting.
+ */
+function FailedRow({active, onRetry}: {active: boolean; onRetry: () => void}) {
+  const ref = useRef<View>(null);
+  useEffect(() => (active ? focusSoon(() => ref.current) : undefined), [active]);
+  return (
+    <View style={styles.empty}>
+      <Text style={[styles.emptyText, {marginTop: 0}]}>Impossibile caricare questa sezione.</Text>
+      <FocusButton ref={ref} label="Riprova" primary onPress={onRetry} style={styles.emptyButton} />
+    </View>
+  );
+}
 
 /** "Nessun contenuto": the page's only focus point while it's shown. */
 function EmptyPage({active, onRetry}: {active: boolean; onRetry: () => void}) {
@@ -522,10 +539,15 @@ export function PluginHome({
       <View style={[styles.strip, {top: L.carouselTop + L.headerH}]}>
         {cards.length ? (
           <CarouselRow
-            key={`${row?.id}:${firstCardKey}`}
+            // A new first card remounts the row (focus on it): what closing
+            // the player wants on Continue Watching, where the title just
+            // watched moves to the front. Not on a live row, which reloads
+            // itself every minute: browsing it, focus jumped back to the
+            // first card whenever an event dropped off the front.
+            key={row?.def?.type === 'live' ? row.id : `${row?.id}:${firstCardKey}`}
             cards={cards}
             variant={row?.variant ?? 'poster'}
-            L={L}
+            L={homeRowLayout(L, row?.variant ?? 'poster')}
             isInactive={isInactive}
             takeFocus={!inactive}
             focusRequest={focusRequest}
@@ -555,8 +577,8 @@ export function PluginHome({
                 : undefined
             }
           />
-        ) : rowState?.failed ? (
-          <Text style={styles.message}>Impossibile caricare questa sezione.</Text>
+        ) : rowState?.failed && row?.def ? (
+          <FailedRow active={!inactive} onRetry={() => row.def && load(row.def)} />
         ) : empty ? (
           <EmptyPage
             active={!inactive}
@@ -566,7 +588,8 @@ export function PluginHome({
             }}
           />
         ) : (
-          <ActivityIndicator size="large" color={colors.primary} style={styles.spinner} />
+          // _SkeletonRow in continue_watching.dart, not a spinner.
+          <RowSkeleton L={L} landscape={row?.variant === 'landscape'} />
         )}
       </View>
     </View>
@@ -575,10 +598,8 @@ export function PluginHome({
 
 const styles = scaledStyles({
   strip: {position: 'absolute', left: 0, right: 0, bottom: 0},
-  message: {color: colors.textMid, fontSize: 26, marginLeft: 56, marginTop: 40},
   empty: {marginLeft: 56, marginTop: 40, alignItems: 'flex-start'},
   emptyTitle: {color: colors.textHigh, fontSize: 36, fontWeight: '700'},
   emptyText: {color: colors.textMid, fontSize: 24, marginTop: 10},
   emptyButton: {marginTop: 28},
-  spinner: {marginTop: 80},
 });

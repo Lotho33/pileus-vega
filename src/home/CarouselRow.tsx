@@ -222,6 +222,17 @@ export function CarouselRow(p: Props) {
       aimAt(old);
       return focusSoon(() => refs.current.get(old));
     }
+    // Shorter (a live row reloaded with fewer events) under a focused card
+    // that no longer exists: its cell unmounts and the native engine would
+    // pick something at random. Land on the last card instead.
+    // Not gated on inRow: the vanishing cell's blur can arrive first.
+    if (p.cards.length < old && !p.isInactive() && current.current >= p.cards.length && p.cards.length > 0) {
+      const last = p.cards.length - 1;
+      current.current = last;
+      slideTo(last, false);
+      aimAt(last);
+      return focusSoon(() => refs.current.get(last));
+    }
     // Only a growing list moves anything here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [p.cards.length]);

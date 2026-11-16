@@ -194,6 +194,14 @@ export class PlayerEngine {
           // (or the system's estimate): see quality.ts.
           defaultBandwidthEstimate: startBps,
           useNetworkInformation: false,
+          // mycelium's proxy sends a segment's headers only once it has the
+          // whole segment from upstream: counted in, that wait read as a slow
+          // network and ABR settled below the best quality almost every
+          // time. Without it Shaka measures the transfer itself, as
+          // ExoPlayer's DefaultBandwidthMeter does on Android TV (timing
+          // starts once the data source has opened, after the headers).
+          // Off by default in Amazon's Shaka build.
+          removeLatencyFromFirstPacketTime: true,
         },
       });
       await this.shaka.load(url, opts.startAt && opts.startAt > 0 ? opts.startAt : null);

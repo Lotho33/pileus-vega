@@ -60,7 +60,29 @@ export interface CardModel {
   when?: string;
   /** Language pill, top-right on poster cards (extra.lang/subs). */
   lang?: {label: string; color: string} | null;
+  /** Film/OVA/ONA/Special/Music/Short pill, top-left on poster cards. */
+  subtype?: string;
   hero: HeroItem;
+}
+
+/** poster_card.dart _subtypeBadge: extra.subtype as its pill label. */
+export function subtypeLabel(subtype: string | undefined): string {
+  switch (subtype) {
+    case 'movie':
+      return 'Film';
+    case 'ova':
+      return 'OVA';
+    case 'ona':
+      return 'ONA';
+    case 'special':
+      return 'Special';
+    case 'music':
+      return 'Music';
+    case 'tv-short':
+      return 'Short';
+    default:
+      return '';
+  }
 }
 
 export type CardVariant = 'poster' | 'landscape';
@@ -121,6 +143,7 @@ export function catalogCard(pluginId: string, i: CatalogItem, variant: CardVaria
     badge: isLiveNow ? 'IN DIRETTA' : '',
     when: !isLiveNow && variant === 'landscape' ? whenShort(e) : '',
     lang: variant === 'poster' ? languageBadge(e.lang, e.subs) : null,
+    subtype: variant === 'poster' ? subtypeLabel(e.subtype) : '',
     hero: {
       key: `${pluginId}:${i.id}`,
       title: i.title,
