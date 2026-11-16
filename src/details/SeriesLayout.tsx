@@ -6,7 +6,8 @@
 
 import {languageBadge} from '../core/language';
 import React, {forwardRef, memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+import {ActivityIndicator, Pressable, ScrollView, StyleSheet, View} from 'react-native';
+import {Text} from '../components/Text';
 import {TVFocusGuideView, useKeplerBackHandler, useTVEventHandler} from '@amazon-devices/react-native-kepler';
 import {Icon} from '../components/Icon';
 import {mycelium} from '../core/api';

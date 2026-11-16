@@ -7,7 +7,8 @@
 // cover the player shows.
 
 import React, {useEffect, useMemo, useRef, useState} from 'react';
-import {ActivityIndicator, Image, StyleSheet, Text, View} from 'react-native';
+import {ActivityIndicator, Image, StyleSheet, View} from 'react-native';
+import {Text} from '../components/Text';
 import {mycelium} from '../core/api';
 import {backdropSrc} from '../core/images';
 import {batchGroups, DownloadMeta} from '../downloads/batch';

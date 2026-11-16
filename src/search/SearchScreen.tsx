@@ -5,7 +5,8 @@
 // Opened from quick search's filters button with the query typed so far.
 
 import React, {forwardRef, useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View} from 'react-native';
+import {ActivityIndicator, Pressable, StyleSheet, useWindowDimensions, View} from 'react-native';
+import {Text} from '../components/Text';
 import {useKeplerBackHandler} from '@amazon-devices/react-native-kepler';
 import {FocusButton} from '../components/FocusButton';
 import {Icon, IconName} from '../components/Icon';

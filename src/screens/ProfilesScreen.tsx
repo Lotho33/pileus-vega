@@ -5,7 +5,8 @@
 // either step drops the whole creation.
 
 import React, {forwardRef, useCallback, useEffect, useRef, useState} from 'react';
-import {ActivityIndicator, Pressable, Text, View} from 'react-native';
+import {ActivityIndicator, Pressable, View} from 'react-native';
+import {Text} from '../components/Text';
 import {Avatar} from '../components/Avatar';
 import {AvatarPicker} from '../components/AvatarPicker';
 import {FocusButton} from '../components/FocusButton';

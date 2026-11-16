@@ -7,7 +7,8 @@
 // trapped; Back closes.
 
 import React, {useEffect, useRef, useState} from 'react';
-import {ActivityIndicator, ScrollView, Text, View} from 'react-native';
+import {ActivityIndicator, ScrollView, View} from 'react-native';
+import {Text} from '../components/Text';
 import {TVFocusGuideView, useKeplerBackHandler} from '@amazon-devices/react-native-kepler';
 import {FocusButton} from '../components/FocusButton';
 import {mycelium} from '../core/api';

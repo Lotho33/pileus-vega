@@ -4,7 +4,8 @@
 // Spatial focus between keys is left to the native focus engine.
 
 import React, {forwardRef, memo, useEffect, useRef, useState} from 'react';
-import {Pressable, Text, View} from 'react-native';
+import {Pressable, View} from 'react-native';
+import {Text} from './Text';
 import {focusSoon} from '../core/focus';
 import {colors, px, scaledStyles} from '../theme';
 

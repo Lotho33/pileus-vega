@@ -2,7 +2,8 @@
 // Focus is trapped inside while it's open; Back closes it (SearchScreen).
 
 import React, {forwardRef, useEffect, useRef, useState} from 'react';
-import {Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+import {Pressable, ScrollView, StyleSheet, View} from 'react-native';
+import {Text} from '../components/Text';
 import {TVFocusGuideView} from '@amazon-devices/react-native-kepler';
 import {Icon} from '../components/Icon';
 import {focusSoon} from '../core/focus';

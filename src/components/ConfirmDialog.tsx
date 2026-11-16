@@ -2,7 +2,8 @@
 // on "Annulla"; Back cancels (its listener is the newest while it's open).
 
 import React, {useEffect, useRef} from 'react';
-import {StyleSheet, Text, View} from 'react-native';
+import {StyleSheet, View} from 'react-native';
+import {Text} from './Text';
 import {TVFocusGuideView, useKeplerBackHandler} from '@amazon-devices/react-native-kepler';
 import {focusSoon} from '../core/focus';
 import {colors, font, scaledStyles, space} from '../theme';

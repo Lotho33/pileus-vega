@@ -1,12 +1,6 @@
 import React, {forwardRef, useState} from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleProp,
-  Text,
-  View,
-  ViewStyle,
-} from 'react-native';
+import {ActivityIndicator, Pressable, StyleProp, View, ViewStyle} from 'react-native';
+import {Text} from './Text';
 import {colors, font, scaledStyles, space} from '../theme';
 
 interface Props {

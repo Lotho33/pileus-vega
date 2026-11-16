@@ -2,7 +2,9 @@
 // half of _StandardHomeShell (shell.dart) and HomeHeroBackground.
 
 import React, {memo, useEffect, useRef, useState, useSyncExternalStore} from 'react';
-import {Animated, Image, StyleSheet, Text, View} from 'react-native';
+import {Animated, Image, StyleSheet, View} from 'react-native';
+import {Text} from '../components/Text';
+import {Icon} from '../components/Icon';
 import {Gradient} from '../components/Gradient';
 import {backdropSrc, posterSrc} from '../core/images';
 import {haloOffsets, logoDisplaySize, logoHaloFor, logoUrlOnly} from '../core/logo';
@@ -74,11 +76,36 @@ function HeroLogo({item, L}: {item: HeroItem; L: HomeLayout}) {
   );
 }
 
+// Skia (pileus-player's renderer) has no w900 DM Sans to draw the w900 title
+// with, so it thickens the Bold synthetically: every edge pushed out by about
+// a sixtieth of the font size, which reads as a heavier, slightly larger
+// title. Vega draws the Bold as is; four copies a sixtieth off on the
+// diagonals rebuild that weight (one title on screen: cheap).
+const EMBOLDEN = 1 / 60;
+
 function HeroTitle({item, L}: {item: HeroItem; L: HomeLayout}) {
+  const fs = L.titleFs;
+  const o = fs * EMBOLDEN;
+  const style = [styles.title, {fontSize: fs, lineHeight: fs * 1.1}];
   return (
-    <Text style={[styles.title, {fontSize: L.titleFs, lineHeight: L.titleFs * 1.1}]} numberOfLines={2}>
-      {item.title}
-    </Text>
+    <View>
+      {[
+        [-o, -o],
+        [o, -o],
+        [-o, o],
+        [o, o],
+      ].map(([x, y]) => (
+        <Text
+          key={`${x},${y}`}
+          style={[style, styles.emboldenCopy, {transform: [{translateX: x}, {translateY: y}]}]}
+          numberOfLines={2}>
+          {item.title}
+        </Text>
+      ))}
+      <Text style={style} numberOfLines={2}>
+        {item.title}
+      </Text>
+    </View>
   );
 }
 
@@ -153,27 +180,29 @@ const HeroBackground = memo(function HeroBackground({url, W}: {url: string; W: n
 });
 
 function MetaChips({item, L}: {item: HeroItem; L: HomeLayout}) {
+  // meta_zone.dart _MetaChip / _Dot: year and rating at w500 in the mid text
+  // color, a gold star_rounded icon, a small rounded dot between them.
+  const fs = L.metaFs;
   const parts: React.ReactNode[] = [];
   if (item.year > 0) {
     parts.push(
-      <Text key="y" style={[styles.chip, {fontSize: L.metaFs}]}>
+      <Text key="y" style={[styles.chip, {fontSize: fs}]}>
         {item.year}
       </Text>,
     );
   }
   if (item.rating > 0) {
     if (parts.length) {
+      const dot = Math.min(8, Math.max(2, (L.H * 3) / 1080));
       parts.push(
-        <Text key="d" style={[styles.dot, {fontSize: L.metaFs}]}>
-          ·
-        </Text>,
+        <View key="d" style={[styles.dot, {width: dot, height: dot, marginHorizontal: (L.H * 10) / 1080}]} />,
       );
     }
     parts.push(
-      <Text key="r" style={[styles.chip, {fontSize: L.metaFs}]}>
-        <Text style={styles.star}>★ </Text>
-        {item.rating.toFixed(1)}
-      </Text>,
+      <View key="r" style={styles.metaRow}>
+        <Icon name="star" size={fs * 0.9} color="#FFD700" />
+        <Text style={[styles.chip, {fontSize: fs, marginLeft: fs * 0.17}]}>{item.rating.toFixed(1)}</Text>
+      </View>,
     );
   }
   return <View style={styles.metaRow}>{parts}</View>;
@@ -233,20 +262,24 @@ const styles = scaledStyles({
   hidden: {opacity: 0},
   haloStrong: {opacity: 0.9},
   haloSoft: {opacity: 0.6},
-  title: {color: colors.textHigh, fontWeight: '900', letterSpacing: -0.5},
+  // shell.dart: w900, height 1.10, letterSpacing -0.5 on the 540-unit TV
+  // canvas (-1 in these 1080p pixels).
+  title: {color: colors.textHigh, fontWeight: '900', letterSpacing: -1},
+  emboldenCopy: {position: 'absolute', left: 0, top: 0, right: 0},
   metaRow: {flexDirection: 'row', alignItems: 'center'},
-  chip: {color: colors.textHigh, fontWeight: '600'},
-  star: {color: '#FFD700'},
-  dot: {color: colors.textMid, marginHorizontal: 10},
+  chip: {color: colors.textMid, fontWeight: '500'},
+  dot: {borderRadius: 4, backgroundColor: colors.textLow},
   // abs centers vertically; in a row that would center the chips across.
   genres: {flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-start', gap: 6},
+  // Border.all's default 1 unit on the 540 canvas: 2 of these pixels.
   genre: {
-    borderRadius: 20,
-    borderWidth: 1,
+    borderRadius: 40,
+    borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.24)',
     backgroundColor: 'rgba(242,242,240,0.10)',
   },
-  genreText: {color: colors.textMid, letterSpacing: 0.2},
+  // letterSpacing 0.2 on the 540-unit canvas.
+  genreText: {color: colors.textMid, letterSpacing: 0.4},
   plot: {color: 'rgba(242,242,240,0.65)'},
 });
 

@@ -7,7 +7,8 @@
 // Focus starts on the current choice; Back cancels.
 
 import React, {forwardRef, useEffect, useRef, useState} from 'react';
-import {Pressable, StyleSheet, Text, View} from 'react-native';
+import {Pressable, StyleSheet, View} from 'react-native';
+import {Text} from './Text';
 import {TVFocusGuideView, useKeplerBackHandler} from '@amazon-devices/react-native-kepler';
 import {focusSoon} from '../core/focus';
 import {colors, font, px, scaledStyles, space} from '../theme';

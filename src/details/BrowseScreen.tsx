@@ -7,7 +7,8 @@
 // page on top lands where you were.
 
 import React, {forwardRef, useCallback, useEffect, useRef, useState} from 'react';
-import {ActivityIndicator, FlatList, Pressable, Text, View} from 'react-native';
+import {ActivityIndicator, FlatList, Pressable, View} from 'react-native';
+import {Text} from '../components/Text';
 import {FocusButton} from '../components/FocusButton';
 import {Icon} from '../components/Icon';
 import {mycelium} from '../core/api';

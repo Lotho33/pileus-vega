@@ -5,7 +5,8 @@
 // so rows stay inert until that key-up has gone by.
 
 import React, {useEffect, useRef, useState} from 'react';
-import {Pressable, StyleSheet, Text, View} from 'react-native';
+import {Pressable, StyleSheet, View} from 'react-native';
+import {Text} from './Text';
 import {TVFocusGuideView, useKeplerBackHandler, useTVEventHandler} from '@amazon-devices/react-native-kepler';
 import {focusSoon} from '../core/focus';
 import {colors, px, scaledStyles} from '../theme';

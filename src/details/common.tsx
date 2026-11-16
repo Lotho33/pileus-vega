@@ -1,7 +1,8 @@
 // Pieces shared by the details layouts (pileus-player details_common.dart).
 
 import React, {forwardRef, useState} from 'react';
-import {Image, Pressable, StyleSheet, Text, View} from 'react-native';
+import {Image, Pressable, StyleSheet, View} from 'react-native';
+import {Text} from '../components/Text';
 import {Gradient, GradientName} from '../components/Gradient';
 import {Icon, IconName} from '../components/Icon';
 import {backdropSrc, posterSrc} from '../core/images';
