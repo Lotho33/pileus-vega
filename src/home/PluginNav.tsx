@@ -136,12 +136,22 @@ interface NavItemProps {
   onPress: () => void;
 }
 
+// _PluginNavItem / _NavAction in plugin_nav.dart: a violet tint and outline,
+// never a solid fill — the selected plugin keeps the stronger one whether
+// focused or not, a focused row the lighter one. Sizes in 1080p pixels
+// (`u`), as the Flutter code's sh * (n / 1080); radius 14 and border 2 are
+// plain units on its 540-tall canvas, doubled here.
 const NavItem = forwardRef<View, NavItemProps>(function NavItem(
   {label, pluginId, icon, selected, preferred, L, onPress},
   ref,
 ) {
   const [focused, setFocused] = useState(false);
-  const color = focused ? colors.textHigh : selected ? colors.primary : colors.textMid;
+  const u = L.H / 1080;
+  const isAction = !pluginId;
+  const active = selected || focused;
+  const dim = isAction ? 'rgba(242,242,240,0.55)' : 'rgba(242,242,240,0.45)';
+  const iconColor = active ? colors.textHigh : dim;
+  const textColor = active ? colors.textHigh : isAction ? dim : 'rgba(242,242,240,0.6)';
   return (
     <Pressable
       ref={ref}
@@ -152,13 +162,27 @@ const NavItem = forwardRef<View, NavItemProps>(function NavItem(
       onPress={onPress}
       style={[
         styles.item,
-        {height: L.H * (80 / 1080), marginHorizontal: L.H * (20 / 1080), paddingHorizontal: L.H * (20 / 1080)},
-        selected && styles.itemSelected,
-        focused && styles.itemFocused,
+        {
+          marginHorizontal: 16 * u,
+          marginVertical: 4 * u,
+          paddingHorizontal: 24 * u,
+          paddingVertical: 20 * u,
+          gap: (isAction ? 20 : 16) * u,
+        },
+        selected ? styles.itemSelected : focused ? styles.itemFocused : null,
       ]}>
-      {pluginId ? <PluginIcon pluginId={pluginId} size={L.H * 0.032} color={color} /> : null}
-      {icon ? <Icon name={icon} size={L.H * 0.032} color={color} /> : null}
-      <Text style={[styles.itemText, {color, fontSize: L.H * 0.026}]} numberOfLines={1}>
+      {pluginId ? <PluginIcon pluginId={pluginId} size={42.5 * u} color={iconColor} /> : null}
+      {icon ? <Icon name={icon} size={42.5 * u} color={iconColor} /> : null}
+      <Text
+        style={[
+          styles.itemText,
+          {
+            color: textColor,
+            fontSize: L.H * (isAction ? 0.0238 : 0.0265),
+            fontWeight: isAction ? 'normal' : selected ? '700' : '500',
+          },
+        ]}
+        numberOfLines={1}>
         {label}
       </Text>
     </Pressable>
@@ -214,7 +238,7 @@ export function PluginNav({
         ))}
       </View>
       <View style={styles.divider} />
-      <View style={{paddingTop: L.H * (16 / 1080), paddingBottom: L.H * (24 / 1080)}}>
+      <View style={{paddingBottom: L.H * (24 / 1080)}}>
         {actions.map(a => (
           <NavItem
             ref={a.label === focusAction ? actionRef : undefined}
@@ -236,9 +260,9 @@ const styles = scaledStyles({
   root: {position: 'absolute', left: 0, top: 0, bottom: 0},
   brand: {flexDirection: 'row', justifyContent: 'center', alignItems: 'center'},
   list: {flex: 1},
-  item: {flexDirection: 'row', alignItems: 'center', gap: 16, borderRadius: 12},
-  itemSelected: {backgroundColor: 'rgba(124,106,247,0.14)'},
-  itemFocused: {backgroundColor: colors.primary},
-  itemText: {fontWeight: '600', flexShrink: 1},
+  item: {flexDirection: 'row', alignItems: 'center', borderRadius: 28, borderWidth: 4, borderColor: 'transparent'},
+  itemSelected: {backgroundColor: 'rgba(124,106,247,0.2)', borderColor: 'rgba(124,106,247,0.7)'},
+  itemFocused: {backgroundColor: 'rgba(124,106,247,0.12)', borderColor: 'rgba(124,106,247,0.4)'},
+  itemText: {flexShrink: 1},
   divider: {height: 1, backgroundColor: colors.border},
 });
