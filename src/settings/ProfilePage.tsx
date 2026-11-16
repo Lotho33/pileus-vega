@@ -2,7 +2,8 @@
 // "forget this device", switch and delete.
 
 import React, {useRef, useState} from 'react';
-import {Text, View} from 'react-native';
+import {View} from 'react-native';
+import {Text} from '../components/Text';
 import {Avatar} from '../components/Avatar';
 import {AvatarPicker} from '../components/AvatarPicker';
 import {ConfirmDialog} from '../components/ConfirmDialog';

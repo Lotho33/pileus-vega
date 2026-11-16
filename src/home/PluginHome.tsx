@@ -5,7 +5,8 @@
 // cards; live rows stay on their first page (refreshed every minute).
 
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {AppState, Image, StyleSheet, Text, View} from 'react-native';
+import {AppState, Image, StyleSheet, View} from 'react-native';
+import {Text} from '../components/Text';
 import {useTVEventHandler} from '@amazon-devices/react-native-kepler';
 import {FocusButton} from '../components/FocusButton';
 import {RowSkeleton} from '../components/Skeleton';

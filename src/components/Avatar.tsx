@@ -1,5 +1,6 @@
 import React from 'react';
-import {Image, Text, View} from 'react-native';
+import {Image, View} from 'react-native';
+import {Text} from './Text';
 import {SvgXml} from '@amazon-devices/react-native-svg';
 import {useAvatarSource} from '../core/avatarCache';
 import {colors, scaledStyles} from '../theme';

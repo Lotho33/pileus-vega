@@ -4,7 +4,8 @@
 // little arrows by the title say which way is available.
 
 import React, {useEffect, useMemo, useRef, useState} from 'react';
-import {Text, View} from 'react-native';
+import {View} from 'react-native';
+import {Text} from '../components/Text';
 import {TVFocusGuideView, useTVEventHandler} from '@amazon-devices/react-native-kepler';
 import {useFocusGate} from '../core/focus';
 import {captionBlock, CarouselRow} from '../home/CarouselRow';

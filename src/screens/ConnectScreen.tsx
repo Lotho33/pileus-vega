@@ -1,5 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {ActivityIndicator, Text, View} from 'react-native';
+import {ActivityIndicator, View} from 'react-native';
+import {Text} from '../components/Text';
 import {FocusButton} from '../components/FocusButton';
 import {OnScreenKeyboard} from '../components/OnScreenKeyboard';
 import {CenteredScreen} from '../components/Screen';

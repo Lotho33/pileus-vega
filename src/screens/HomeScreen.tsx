@@ -4,7 +4,8 @@
 // one is mounted.
 
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {ActivityIndicator, StyleSheet, Text, View} from 'react-native';
+import {ActivityIndicator, StyleSheet, View} from 'react-native';
+import {Text} from '../components/Text';
 import {useKeplerBackHandler, useTVEventHandler} from '@amazon-devices/react-native-kepler';
 import {DetailsScreen} from '../details/DetailsScreen';
 import {LivePopup} from '../details/LivePopup';

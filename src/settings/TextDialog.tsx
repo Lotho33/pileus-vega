@@ -2,7 +2,8 @@
 // on-screen keyboard. Focus is trapped in it; Back cancels.
 
 import React, {useEffect, useRef, useState} from 'react';
-import {StyleSheet, Text, View} from 'react-native';
+import {StyleSheet, View} from 'react-native';
+import {Text} from '../components/Text';
 import {TVFocusGuideView, useKeplerBackHandler} from '@amazon-devices/react-native-kepler';
 import {FocusButton} from '../components/FocusButton';
 import {KeyboardLayout, OnScreenKeyboard} from '../components/OnScreenKeyboard';

@@ -19,7 +19,8 @@
 // the old one — both landed mid-row, and the row then slid there.
 
 import React, {forwardRef, useCallback, useEffect, useRef, useState} from 'react';
-import {ActivityIndicator, FlatList, Pressable, Text, View} from 'react-native';
+import {ActivityIndicator, FlatList, Pressable, View} from 'react-native';
+import {Text} from '../components/Text';
 import {TVFocusGuideView, useTVEventHandler} from '@amazon-devices/react-native-kepler';
 import {Icon} from '../components/Icon';
 import {focusSoon, requestFocus, SETTLE_MS} from '../core/focus';

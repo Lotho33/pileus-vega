@@ -5,7 +5,8 @@
 // no counterpart here.
 
 import React, {useEffect, useRef, useState} from 'react';
-import {Text, View} from 'react-native';
+import {View} from 'react-native';
+import {Text} from '../components/Text';
 import {
   DevicePrefs,
   LIVE_BUFFER,

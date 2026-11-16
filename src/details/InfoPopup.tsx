@@ -5,7 +5,8 @@
 // ↑/↓ scroll the text; Back closes it.
 
 import React, {useEffect, useRef, useState} from 'react';
-import {ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+import {ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, View} from 'react-native';
+import {Text} from '../components/Text';
 import {TVFocusGuideView, useKeplerBackHandler, useTVEventHandler} from '@amazon-devices/react-native-kepler';
 import {Icon, IconName} from '../components/Icon';
 import {mycelium} from '../core/api';

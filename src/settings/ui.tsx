@@ -3,7 +3,8 @@
 // stepper rows of preferences_screen.dart).
 
 import React, {forwardRef, useEffect, useRef, useState} from 'react';
-import {Pressable, ScrollView, Text, View} from 'react-native';
+import {Pressable, ScrollView, View} from 'react-native';
+import {Text} from '../components/Text';
 import {useTVEventHandler} from '@amazon-devices/react-native-kepler';
 import {Icon, IconName} from '../components/Icon';
 import {focusSoon} from '../core/focus';

@@ -3,7 +3,8 @@
 // Focus is trapped inside while it's open: ← at its edge does nothing.
 
 import React, {forwardRef, memo, useEffect, useRef, useState} from 'react';
-import {Pressable, Text, View} from 'react-native';
+import {Pressable, View} from 'react-native';
+import {Text} from '../components/Text';
 import {TVFocusGuideView} from '@amazon-devices/react-native-kepler';
 import AsyncStorage from '@amazon-devices/react-native-async-storage__async-storage';
 import {SvgXml} from '@amazon-devices/react-native-svg';

@@ -1,5 +1,6 @@
 import React, {useEffect, useRef} from 'react';
-import {Animated, Easing, Text, View} from 'react-native';
+import {Animated, Easing, View} from 'react-native';
+import {Text} from '../components/Text';
 import {colors, scaledStyles} from '../theme';
 import type {HomeLayout} from './layout';
 

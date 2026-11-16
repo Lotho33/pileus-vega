@@ -6,7 +6,8 @@
 // these sheets are written in; AppScale.space() values are already 1080p.
 
 import React, {forwardRef, memo, useState} from 'react';
-import {Image, Pressable, StyleSheet, Text, View} from 'react-native';
+import {Image, Pressable, StyleSheet, View} from 'react-native';
+import {Text} from '../components/Text';
 import {Gradient} from '../components/Gradient';
 import {Icon} from '../components/Icon';
 import {posterSrc} from '../core/images';

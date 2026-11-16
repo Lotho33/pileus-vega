@@ -6,7 +6,8 @@
 // with u = H/540 (two pixels each on a 1080p Fire TV).
 
 import React, {useEffect, useRef, useState} from 'react';
-import {Image, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+import {Image, Pressable, ScrollView, StyleSheet, View} from 'react-native';
+import {Text} from '../components/Text';
 import {TVFocusGuideView} from '@amazon-devices/react-native-kepler';
 import {Gradient} from '../components/Gradient';
 import {Icon} from '../components/Icon';

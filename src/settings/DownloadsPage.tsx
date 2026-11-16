@@ -3,7 +3,8 @@
 // server (its signed file_url); nothing is copied to the device.
 
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {ActivityIndicator, Text, View} from 'react-native';
+import {ActivityIndicator, View} from 'react-native';
+import {Text} from '../components/Text';
 import {TVFocusGuideView, useKeplerBackHandler} from '@amazon-devices/react-native-kepler';
 import {FocusButton} from '../components/FocusButton';
 import {mycelium} from '../core/api';

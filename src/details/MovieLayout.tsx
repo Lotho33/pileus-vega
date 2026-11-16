@@ -5,7 +5,8 @@
 // episodes / runtime / status under the title.
 
 import React, {useMemo, useRef, useState} from 'react';
-import {StyleSheet, Text, View} from 'react-native';
+import {StyleSheet, View} from 'react-native';
+import {Text} from '../components/Text';
 import {Gradient} from '../components/Gradient';
 import type {CatalogItem, ContinueWatchingItem, DetailsResponse, MovieDetails, SeriesDetails} from '../gen/media';
 import type {HomeLayout} from '../home/layout';

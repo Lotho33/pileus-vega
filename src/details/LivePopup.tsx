@@ -8,7 +8,8 @@
 // on a 1080p Fire TV (u = H/540).
 
 import React, {useEffect, useRef, useState} from 'react';
-import {ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View} from 'react-native';
+import {ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, useWindowDimensions, View} from 'react-native';
+import {Text} from '../components/Text';
 import {TVFocusGuideView, useKeplerBackHandler} from '@amazon-devices/react-native-kepler';
 import {Icon} from '../components/Icon';
 import {focusSoon} from '../core/focus';

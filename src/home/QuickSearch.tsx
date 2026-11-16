@@ -6,7 +6,8 @@
 // the panel: only Back and the X close it.
 
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {ActivityIndicator, FlatList, Pressable, Text, View} from 'react-native';
+import {ActivityIndicator, FlatList, Pressable, View} from 'react-native';
+import {Text} from '../components/Text';
 import {TVFocusGuideView} from '@amazon-devices/react-native-kepler';
 import {Icon, IconName} from '../components/Icon';
 import {OnScreenKeyboard} from '../components/OnScreenKeyboard';
