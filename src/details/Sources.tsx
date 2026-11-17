@@ -217,7 +217,16 @@ export function SourceButtons({
   if (state.sources.length === 1) {
     return (
       <View style={[styles.wrap, {justifyContent: align, gap: px(24)}]}>
-        <PlayButton compact={compact} ref={first} label="Guarda" s={s} primary onPress={() => onPlay(state.sources[0])} />
+        {/* The details page says "Guarda" (_buildSingleButton); a popup's
+            PopupPlayButton names the source, as for several. */}
+        <PlayButton
+          compact={compact}
+          ref={first}
+          label={(compact && state.sources[0].label) || 'Guarda'}
+          s={s}
+          primary
+          onPress={() => onPlay(state.sources[0])}
+        />
         {trailing}
         {actions}
       </View>
