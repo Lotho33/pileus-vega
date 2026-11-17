@@ -4,7 +4,7 @@
 // avatar_url. It is never offered when editing a profile: mycelium's
 // UpdateProfile reads an empty avatar_url as "leave unchanged", so there's
 // no going back to it (a photo is set from mycelium's dashboard).
-// Focus starts on the current choice; Back cancels.
+// Focus starts on the current choice; Back or "Annulla" cancel.
 
 import React, {forwardRef, useEffect, useRef, useState} from 'react';
 import {Pressable, StyleSheet, View} from 'react-native';
@@ -13,6 +13,7 @@ import {TVFocusGuideView, useKeplerBackHandler} from '@amazon-devices/react-nati
 import {focusSoon} from '../core/focus';
 import {colors, font, px, scaledStyles, space} from '../theme';
 import {Avatar, AVATAR_COUNT, avatarUrl} from './Avatar';
+import {FocusButton} from './FocusButton';
 
 const COLUMNS = 5;
 
@@ -91,6 +92,10 @@ export function AvatarPicker({
             />
           ))}
         </View>
+        {/* The AlertDialog action of avatar_picker_dialog.dart. */}
+        <View style={styles.actions}>
+          <FocusButton label="Annulla" onPress={onCancel} />
+        </View>
       </TVFocusGuideView>
     </View>
   );
@@ -127,6 +132,7 @@ const styles = scaledStyles({
     borderWidth: 4,
     borderColor: 'transparent',
   },
+  actions: {alignSelf: 'flex-end', marginTop: space.m},
   cellSelected: {borderColor: 'rgba(124,106,247,0.6)'},
   cellFocused: {borderColor: colors.textHigh},
 });
