@@ -7,7 +7,8 @@
 // cover the player shows.
 
 import React, {useEffect, useMemo, useRef, useState} from 'react';
-import {ActivityIndicator, Image, StyleSheet, View} from 'react-native';
+import {Image, StyleSheet, View} from 'react-native';
+import {DetailsSkeleton} from '../components/Skeleton';
 import {Text} from '../components/Text';
 import {mycelium} from '../core/api';
 import {backdropSrc} from '../core/images';
@@ -19,7 +20,7 @@ import type {EpisodeNav} from '../player/episodes';
 import {emptyRequest, PlayRequest} from '../player/session';
 import {focusSoon} from '../core/focus';
 import {colors, scaledStyles} from '../theme';
-import {BackButton, Backdrop, catalogHPadRatio, GenreChips, MetaRow} from './common';
+import {BackButton, Backdrop, catalogHPadRatio, contentScale, GenreChips, MetaRow} from './common';
 import {fmtAirDate} from './format';
 import {DownloadChip, SourceButtons, useSources} from './Sources';
 
@@ -58,7 +59,12 @@ export function EpisodeScreen({
   onPlay: (req: PlayRequest) => void;
 }) {
   const {W, H} = L;
-  const s = H / 1080;
+  // episode_detail_screen.dart: contentScale (footer, floor 0.5) for the
+  // content; the back-button row in units of its 540-tall canvas (k) and
+  // 1080p pixels (u).
+  const s = contentScale(H, true, 0.5);
+  const k = H / 540;
+  const u = H / 1080;
   const [item, setItem] = useState<CatalogItem | null>(null);
   const [ep, setEp] = useState<EpisodeDetails | null>(null);
   const [show, setShow] = useState<ShowMeta | null>(null);
@@ -166,17 +172,17 @@ export function EpisodeScreen({
   return (
     <View style={styles.root}>
       <Backdrop url={show?.fanart || still || fallbackPoster} W={W} shade="movieShade" />
-      <View style={{paddingHorizontal: 40 * s, paddingTop: 24 * s, height: 72 * s}}>
-        <BackButton s={s} onPress={onBack} />
+      <View style={{paddingHorizontal: 24 * k, paddingTop: 28 * k, height: 28 * k + 48 * u}}>
+        <BackButton s={u} onPress={onBack} />
       </View>
       {!item && !failed ? (
-        <ActivityIndicator size="large" color={colors.textHigh} style={styles.spinner} />
+        <DetailsSkeleton W={W} H={H} />
       ) : (
         <View style={[styles.main, {paddingHorizontal: hPad, paddingTop: 40 * s, gap: 40 * s}]}>
           <View style={[styles.still, {width: stillW, height: (stillW * 9) / 16}]}>
             {still || fallbackPoster ? (
               <Image
-                source={{uri: backdropSrc(still || fallbackPoster, Math.round(stillW))}}
+                source={{uri: backdropSrc(still || fallbackPoster, Math.round(stillW), true)}}
                 style={StyleSheet.absoluteFill}
                 resizeMode={still ? 'cover' : 'contain'}
               />
@@ -258,7 +264,6 @@ export function EpisodeScreen({
 
 const styles = scaledStyles({
   root: {...StyleSheet.absoluteFillObject, backgroundColor: '#0D0D1A'},
-  spinner: {marginTop: 200},
   main: {flexDirection: 'row', alignItems: 'flex-start'},
   still: {borderRadius: 12, overflow: 'hidden', backgroundColor: colors.surface2},
   info: {flex: 1},
