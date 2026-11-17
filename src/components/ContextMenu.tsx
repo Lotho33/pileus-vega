@@ -30,7 +30,9 @@ function MenuRow({action, first, armed}: {action: MenuAction; first: boolean; ar
   const ref = useRef<View>(null);
   const [focused, setFocused] = useState(false);
   useEffect(() => (first ? focusSoon(() => ref.current) : undefined), [first]);
-  const color = action.destructive ? DESTRUCTIVE : focused ? colors.textHigh : colors.textMid;
+  // CwMenuButton: the row's own colour, also for its focus tint and border.
+  const color = action.destructive ? DESTRUCTIVE : colors.textMid;
+  const tint = action.destructive ? '239,68,68' : '255,255,255';
   return (
     <Pressable
       ref={ref}
@@ -39,8 +41,11 @@ function MenuRow({action, first, armed}: {action: MenuAction; first: boolean; ar
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
       onPress={() => armed() && action.onPress()}
-      style={[styles.row, focused && styles.rowFocused]}>
-      <Icon name={action.icon} size={px(30)} color={color} />
+      style={[
+        styles.row,
+        focused && {backgroundColor: `rgba(${tint},0.14)`, borderColor: `rgba(${tint},0.55)`},
+      ]}>
+      <Icon name={action.icon} size={px(44)} color={color} />
       <Text style={[styles.label, {color}]} numberOfLines={1}>
         {action.label}
       </Text>
@@ -52,7 +57,10 @@ export function ContextMenu({
   title,
   actions,
   onClose,
+  wide,
 }: {
+  /** _CwContextMenu (480 wide) rather than _CardContextMenu (400). */
+  wide?: boolean;
   title: string;
   actions: MenuAction[];
   onClose: () => void;
@@ -92,7 +100,7 @@ export function ContextMenu({
   const armed = () => armedRef.current;
   return (
     <View style={styles.scrim}>
-      <TVFocusGuideView style={styles.card} trapFocusLeft trapFocusRight trapFocusUp trapFocusDown>
+      <TVFocusGuideView style={[styles.card, wide ? styles.cardWide : styles.cardNarrow]} trapFocusLeft trapFocusRight trapFocusUp trapFocusDown>
         <Text style={styles.title} numberOfLines={2}>
           {title}
         </Text>
@@ -113,20 +121,21 @@ const styles = scaledStyles({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  card: {width: 760, paddingHorizontal: 56, paddingVertical: 48, borderRadius: 32, backgroundColor: '#14141F'},
-  title: {color: colors.textHigh, fontSize: 34, fontWeight: '700'},
-  list: {marginTop: 40, gap: 16},
+  // Flutter's dp on the 540 canvas, ×2.
+  card: {borderRadius: 32, backgroundColor: '#14141F'},
+  cardWide: {width: 960, paddingHorizontal: 64, paddingVertical: 56},
+  cardNarrow: {width: 800, paddingHorizontal: 56, paddingVertical: 48},
+  title: {color: colors.textHigh, fontSize: 36, fontWeight: '700'},
+  list: {marginTop: 44, gap: 16},
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 24,
-    paddingHorizontal: 28,
-    paddingVertical: 20,
-    borderRadius: 16,
+    gap: 28,
+    paddingHorizontal: 32,
+    paddingVertical: 28,
+    borderRadius: 20,
     borderWidth: 3,
     borderColor: 'transparent',
-    backgroundColor: 'rgba(242,242,240,0.05)',
   },
-  rowFocused: {borderColor: colors.primary, backgroundColor: 'rgba(124,106,247,0.18)'},
-  label: {flex: 1, fontSize: 28, fontWeight: '600'},
+  label: {flex: 1, fontSize: 32},
 });
