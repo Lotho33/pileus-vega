@@ -12,17 +12,20 @@ export function TextField({
   placeholder,
   secure,
   center,
+  inCard,
   style,
 }: {
   value: string;
   placeholder: string;
   secure?: boolean;
   center?: boolean;
+  /** Inside AuthFrame's card: as wide as the card, the connect screen's field look. */
+  inCard?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
   const shown = secure ? '•'.repeat(Array.from(value).length) : value;
   return (
-    <View style={[styles.box, center && styles.center, style]}>
+    <View style={[styles.box, inCard && styles.inCard, center && styles.center, style]}>
       {value ? (
         <Text style={styles.value} numberOfLines={1}>
           {shown}
@@ -48,6 +51,16 @@ const styles = scaledStyles({
     borderWidth: 3,
     borderColor: colors.primary,
     justifyContent: 'center',
+  },
+  inCard: {
+    width: undefined,
+    alignSelf: 'stretch',
+    height: 64,
+    paddingHorizontal: 18,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: '#0D0D1A',
   },
   center: {alignItems: 'center'},
   value: {color: colors.textHigh, fontSize: font.body * 1.1, letterSpacing: 1},
