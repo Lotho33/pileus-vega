@@ -201,7 +201,7 @@ export function PluginHome({
         const variant = variantFor(def);
         const seen = new Set<string>();
         const cards = r.items
-          .map(i => catalogCard(plugin.pluginId, i, variant))
+          .map(i => catalogCard(plugin.pluginId, i, variant, def.disableHeroBackground))
           .filter(c => !seen.has(c.key) && !!seen.add(c.key));
         setState(s => ({
           ...s,
@@ -238,7 +238,7 @@ export function PluginHome({
       try {
         const r = await mycelium.getCatalog(plugin.pluginId, def.id, 1);
         const variant = variantFor(def);
-        const fresh = new Map(r.items.map(i => [`${plugin.pluginId}:${i.id}`, catalogCard(plugin.pluginId, i, variant)]));
+        const fresh = new Map(r.items.map(i => [`${plugin.pluginId}:${i.id}`, catalogCard(plugin.pluginId, i, variant, def.disableHeroBackground)]));
         setState(st => {
           const cur = st[def.id];
           if (!cur || cur.loading || cur.page !== 1) {
@@ -281,7 +281,7 @@ export function PluginHome({
         update(c => {
           const seen = new Set(c.cards.map(x => x.key));
           const more = r.items
-            .map(i => catalogCard(plugin.pluginId, i, variant))
+            .map(i => catalogCard(plugin.pluginId, i, variant, def.disableHeroBackground))
             .filter(x => !seen.has(x.key) && !!seen.add(x.key));
           return {
             ...c,
@@ -324,7 +324,7 @@ export function PluginHome({
           const variant = variantFor(def);
           const seen = new Set<string>();
           const fresh = r.items
-            .map(i => catalogCard(plugin.pluginId, i, variant))
+            .map(i => catalogCard(plugin.pluginId, i, variant, def.disableHeroBackground))
             .filter(c => !seen.has(c.key) && !!seen.add(c.key));
           // An emptied row would drop out from under the focus: leave it for
           // the next full load instead.
@@ -536,8 +536,16 @@ export function PluginHome({
   return (
     <View style={StyleSheet.absoluteFill}>
       <HeroFromStore store={heroStore} L={L} />
-      {row ? <SectionHeader title={row.title} active={rowIndex} total={rows.length} L={L} /> : null}
-      <View style={[styles.strip, {top: L.carouselTop + L.headerH}]}>
+      {row ? (
+        <SectionHeader title={row.title} active={rowIndex} total={rows.length} L={L} large={row.variant === 'live'} />
+      ) : null}
+      {/* shell.dart anchors the strip to the bottom: a live row's shorter
+          cards (with a 0.08 focus margin, not 0.10) sit lower than posters. */}
+      <View
+        style={[
+          styles.strip,
+          {top: L.carouselTop + L.headerH + (row?.variant === 'live' ? 1.2 * L.posterH - 1.18 * L.liveH : 0)},
+        ]}>
         {cards.length ? (
           <CarouselRow
             // A new first card remounts the row (focus on it): what closing
@@ -590,7 +598,7 @@ export function PluginHome({
           />
         ) : (
           // _SkeletonRow in continue_watching.dart, not a spinner.
-          <RowSkeleton L={L} landscape={row?.variant === 'landscape'} />
+          <RowSkeleton L={L} landscape={row?.variant === 'landscape' || row?.variant === 'live'} />
         )}
       </View>
     </View>

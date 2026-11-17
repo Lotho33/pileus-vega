@@ -14,6 +14,10 @@ export interface HomeLayout {
   posterW: number;
   posterH: number;
   landscapeW: number;
+  /** live_row.dart: 3 cards + PEEK_FRACTION, 16:9, gap 40/1920 of the width. */
+  liveW: number;
+  liveH: number;
+  liveGap: number;
   headerH: number;
   carouselTop: number;
   metaTop: number;
@@ -68,6 +72,7 @@ export function computeLayout(W: number, H: number): HomeLayout {
     posterW,
     posterH,
     landscapeW: (posterH * 16) / 9,
+    ...liveDims(W, hPad),
     headerH,
     carouselTop,
     metaTop,
@@ -102,7 +107,18 @@ const PEEK_FRACTION = 0.16;
  *   more a wide card grows on focus than a poster does, so a focused card
  *   never overlaps its neighbour and its edge lines up with the rows below.
  */
-export function homeRowLayout(L: HomeLayout, variant: 'poster' | 'landscape'): HomeLayout {
+const VISIBLE_LIVE_CARDS = 3;
+
+function liveDims(W: number, hPad: number): {liveW: number; liveH: number; liveGap: number} {
+  const liveGap = (W * 40) / 1920;
+  const liveW = Math.max(120, (W - hPad * 2 - liveGap * VISIBLE_LIVE_CARDS) / (VISIBLE_LIVE_CARDS + PEEK_FRACTION));
+  return {liveW, liveH: (liveW * 9) / 16, liveGap};
+}
+
+export function homeRowLayout(L: HomeLayout, variant: 'poster' | 'landscape' | 'live'): HomeLayout {
+  if (variant === 'live') {
+    return {...L, gap: L.liveGap};
+  }
   if (variant === 'landscape') {
     const grow = (FOCUS_SCALE_CARD - 1) / 2;
     const overflowCw = L.landscapeW * grow;

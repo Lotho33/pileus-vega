@@ -26,7 +26,7 @@ import {Icon} from '../components/Icon';
 import {focusSoon, requestFocus, SETTLE_MS} from '../core/focus';
 import {shouldLoadMore} from '../core/paging';
 import * as perf from '../core/perf';
-import {LandscapeCard, PosterCard} from './Cards';
+import {LandscapeCard, LiveCard, PosterCard} from './Cards';
 import type {HomeLayout} from './layout';
 import type {CardModel, CardVariant} from './model';
 import {colors, px, scaledStyles} from '../theme';
@@ -132,8 +132,10 @@ const HIGHLIGHT_HANDOVER_MS = 600;
 export function CarouselRow(p: Props) {
   const list = useRef<FlatList<CardModel>>(null);
   const refs = useRef(new Map<number, View>());
-  const w = Math.round(p.variant === 'landscape' ? p.L.landscapeW : p.L.posterW);
-  const h = Math.round(p.L.posterH);
+  const w = Math.round(
+    p.variant === 'live' ? p.L.liveW : p.variant === 'landscape' ? p.L.landscapeW : p.L.posterW,
+  );
+  const h = Math.round(p.variant === 'live' ? p.L.liveH : p.L.posterH);
   const stride = w + Math.round(p.L.gap);
   // Slots: the cards plus the load-more card; whole cards that fit.
   const slots = p.cards.length + (p.loadMore ? 1 : 0);
@@ -308,7 +310,7 @@ export function CarouselRow(p: Props) {
     }
   };
 
-  const Card = p.variant === 'landscape' ? LandscapeCard : PosterCard;
+  const Card = p.variant === 'live' ? LiveCard : p.variant === 'landscape' ? LandscapeCard : PosterCard;
   const {onFocusCard, onPressCard} = p;
   // Focus near the end (or on the placeholder): ask for the next page.
   const maybeLoadMore = (index: number) => {
