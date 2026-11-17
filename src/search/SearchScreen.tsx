@@ -397,7 +397,7 @@ export function SearchScreen({
             showEnter={false}
             maxLength={80}
             width={W - hPad * 2}
-            keyHeight={H * 0.044}
+            keyHeight={H * (46 / 1080)}
             takeFocus
             focusToken={kbFocus}
             onKeyFocus={() => {

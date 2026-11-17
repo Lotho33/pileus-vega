@@ -137,7 +137,8 @@ const Key = memo(
         // Wide keys show focus with the border only, as in Flutter.
         focused && def.flex === 1 && {transform: [{scale}]},
       ]}>
-      <Text style={[styles.label, {fontSize: height * (isSpecial ? 0.36 : 0.46)}, isSpecial && styles.special]}>
+      {/* on_screen_keyboard.dart: letters 20 and special keys 21 (w600) on a 46 key. */}
+      <Text style={[styles.label, {fontSize: height * (isSpecial ? 0.456 : 0.435)}, isSpecial && styles.special]}>
         {def.label}
       </Text>
     </Pressable>
@@ -226,9 +227,12 @@ export function OnScreenKeyboard({
     }
   };
 
-  const gap = keyHeight * 0.2;
+  // Flutter pads each key 6 left/right and each row 3 above/below (on a 46
+  // key): 12 between keys, 6 between rows.
+  const gap = keyHeight * 0.26;
+  const rowGap = keyHeight * 0.13;
   return (
-    <View style={{width, gap}}>
+    <View style={{width, gap: rowGap}}>
       {rows.map((row, r) => (
         // The layer is part of the key so a switch remounts (and re-runs
         // hasTVPreferredFocus); shift keeps the same keys mounted.
@@ -264,13 +268,14 @@ const styles = scaledStyles({
   key: {
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 8,
-    borderWidth: 2,
+    // Radius 8 and a 1.6 focus border on the 540 canvas (×2).
+    borderRadius: 16,
+    borderWidth: 3.2,
     borderColor: 'transparent',
     backgroundColor: colors.surface2,
   },
   keyActive: {backgroundColor: 'rgba(124,106,247,0.35)'},
-  keyFocused: {borderColor: colors.primary, backgroundColor: '#2A2A48'},
+  keyFocused: {borderColor: colors.primary},
   label: {color: '#fff'},
   special: {fontWeight: '600'},
 });
