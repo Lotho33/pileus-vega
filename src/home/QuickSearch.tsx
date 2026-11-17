@@ -330,7 +330,7 @@ export function QuickSearch({
               showEnter={false}
               maxLength={80}
               width={innerW}
-              keyHeight={L.H * 0.046}
+              keyHeight={L.H * (46 / 1080)}
               takeFocus
               focusToken={kbFocus}
             />
