@@ -30,15 +30,22 @@ const FAMILY: Record<string, string> = {
   '900': 'DMSans-Bold',
 };
 
-/** The DM Sans file for a style's weight (exported for tests). */
-export function fontFamilyFor(weight: TextStyle['fontWeight'] | undefined): string {
-  return FAMILY[String(weight ?? 'normal')] ?? FAMILY.normal;
+/**
+ * The DM Sans file for a style's weight (exported for tests). Italic has one
+ * file, regular weight, as in pileus-player's pubspec.
+ */
+export function fontFamilyFor(weight: TextStyle['fontWeight'] | undefined, italic = false): string {
+  return italic ? 'DMSans-Italic' : FAMILY[String(weight ?? 'normal')] ?? FAMILY.normal;
 }
 
 export const Text = forwardRef<RNText, TextProps>(function Text(props, ref) {
   const flat = (StyleSheet.flatten(props.style) ?? {}) as TextStyle;
-  if (flat.fontFamily || (flat.fontSize === undefined && flat.fontWeight === undefined)) {
+  if (
+    flat.fontFamily ||
+    (flat.fontSize === undefined && flat.fontWeight === undefined && flat.fontStyle === undefined)
+  ) {
     return <RNText ref={ref} {...props} />;
   }
-  return <RNText ref={ref} {...props} style={[props.style, {fontFamily: fontFamilyFor(flat.fontWeight)}]} />;
+  const family = fontFamilyFor(flat.fontWeight, flat.fontStyle === 'italic');
+  return <RNText ref={ref} {...props} style={[props.style, {fontFamily: family}]} />;
 });

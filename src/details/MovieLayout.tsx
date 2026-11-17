@@ -17,6 +17,7 @@ import {
   BackButton,
   Backdrop,
   catalogHPadRatio,
+  contentScale,
   detailsGapRatio,
   detailsPosterWRatio,
   detailsVPadRatio,
@@ -72,7 +73,11 @@ export function MovieLayout({
   onToast: (text: string) => void;
 }) {
   const {W, H} = L;
-  const s = H / 1080;
+  // u: 1080p pixels (sh × n/1080 in pileus-player); k: one unit of its
+  // 540-tall TV canvas (plain numbers there); s: contentScale, set below once
+  // it's known whether there's a related-titles footer.
+  const u = H / 1080;
+  const k = H / 540;
   const d = movie;
   const sd = series;
   const fanart = sd?.fanartUrl || d?.fanartUrl || item.extra?.fanart_url || '';
@@ -96,12 +101,14 @@ export function MovieLayout({
   const lists = useMemo(() => relatedLists(item.extra), [item.extra]);
   const hasRelated = lists.related.length + lists.similar.length > 0;
 
+  const s = contentScale(H, hasRelated);
   const hPad = W * catalogHPadRatio;
-  const topBarH = 24 * s + 48 * s;
+  // EdgeInsets.fromLTRB(40, 24, 40, 0) around the back button.
+  const topBarH = 24 * k + 48 * u;
   const h = H - topBarH;
   const footerH = hasRelated ? Math.min(h * 0.4, h * 0.5) : 0;
   const mainH = h - footerH;
-  const cardH = hasRelated ? Math.max(151 * s, Math.min(383 * s, footerH - 132 * s)) : 0;
+  const cardH = hasRelated ? Math.max(151 * k, Math.min(383 * k, footerH - 132 * u)) : 0;
   const posterBase = W * detailsPosterWRatio;
   const posterW = hasRelated ? posterBase : Math.min(posterBase * 1.3, Math.max(posterBase, mainH / 1.5));
 
@@ -134,8 +141,8 @@ export function MovieLayout({
     <View style={styles.root}>
       <Backdrop url={fanart || item.posterUrl} W={W} shade="movieShade" />
       <Gradient name="movieLeft" direction="toRight" />
-      <View style={{paddingHorizontal: 40 * s, paddingTop: 24 * s, height: topBarH}}>
-        <BackButton s={s} onPress={onBack} />
+      <View style={{paddingHorizontal: 40 * k, paddingTop: 24 * k, height: topBarH}}>
+        <BackButton s={u} onPress={onBack} />
       </View>
       <View style={[styles.main, {height: mainH, paddingHorizontal: hPad, paddingTop: H * detailsVPadRatio}]}>
         <Poster url={item.posterUrl} title={item.title} width={posterW} />

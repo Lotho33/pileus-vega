@@ -16,6 +16,18 @@ export const detailsGapRatio = 24 / 1920;
 export const detailsEpisodeTileHRatio = 100 / 1080;
 export const catalogHPadRatio = 56 / 1920;
 
+/**
+ * AppScale.contentScale: the scale of the movie, series and episode pages'
+ * text and spacing. pileus-player computes it on its 540-unit TV canvas as
+ * clamp(sh/1080 × 1.15, floor, 2.4), × 1.12 without a related-titles footer;
+ * with sh = 540 that's 0.575 units (the floor wins where it's higher: 0.7 on
+ * series pages). Returned in layout units (dp), like H.
+ */
+export function contentScale(H: number, hasFooter: boolean, floor = 0.55): number {
+  const units = Math.min(2.4, Math.max(floor, (540 / 1080) * 1.15)) * (hasFooter ? 1 : 1.12);
+  return (H / 540) * units;
+}
+
 export function Backdrop({url, W, shade}: {url: string; W: number; shade: GradientName}) {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
