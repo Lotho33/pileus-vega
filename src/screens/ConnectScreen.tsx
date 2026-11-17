@@ -3,13 +3,14 @@ import {ActivityIndicator, View} from 'react-native';
 import {Text} from '../components/Text';
 import {FocusButton} from '../components/FocusButton';
 import {OnScreenKeyboard} from '../components/OnScreenKeyboard';
-import {CenteredScreen} from '../components/Screen';
+import {Icon} from '../components/Icon';
+import {AuthFrame, FieldLabel, TextLink} from '../components/Screen';
 import {TextField} from '../components/TextField';
 import {discoverServers, FoundServer} from '../core/discovery';
 import {focusSoon} from '../core/focus';
 import {parseServerAddressInput} from '../core/serverAddress';
 import {errorText, useAuth} from '../state/auth';
-import {colors, font, px, scaledStyles, space} from '../theme';
+import {colors, px, scaledStyles} from '../theme';
 
 export function ConnectScreen() {
   const {connect, session} = useAuth();
@@ -18,12 +19,15 @@ export function ConnectScreen() {
   const [error, setError] = useState('');
   const [found, setFound] = useState<FoundServer[]>([]);
   const [scanning, setScanning] = useState(true);
+  // "Riprova scansione automatica" runs the discovery again.
+  const [scan, setScan] = useState(0);
   const firstFound = useRef<View>(null);
   // Typing comes first: a server found later doesn't take focus from the keyboard.
   const typed = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
+    setScanning(true);
     const last = parseServerAddressInput(session.serverInput);
     discoverServers({
       lastHost: !last.remote && last.host ? last.host : null,
@@ -33,7 +37,7 @@ export function ConnectScreen() {
     return () => {
       cancelled = true;
     };
-  }, [session.serverInput]);
+  }, [session.serverInput, scan]);
 
   const hasFound = found.length > 0;
   useEffect(() => {
@@ -57,13 +61,12 @@ export function ConnectScreen() {
     }
   };
 
+  // server_discovery_screen.dart's card: what the scan found (or that it
+  // found nothing), "Indirizzo server" with its hint, the keyboard,
+  // "Connetti", and "Riprova scansione automatica" as a link.
   return (
-    <CenteredScreen
-      title="Collegati a Mycelium"
-      subtitle="Scegli un server trovato nella rete di casa, oppure inserisci l'indirizzo: un IP (es. 192.168.1.20) o un dominio (es. media.esempio.it)."
-      error={error}>
-      <View style={styles.found}>
-        {/* At most MAX_SHOWN, side by side: many servers mustn't push the keyboard off screen. */}
+    <AuthFrame subtitle="Connessione a Mycelium">
+      {found.length ? (
         <View style={styles.servers}>
           {found.slice(0, MAX_SHOWN).map((s, i) => (
             <FocusButton
@@ -79,16 +82,19 @@ export function ConnectScreen() {
             />
           ))}
         </View>
-        {scanning ? (
-          <View style={styles.scan}>
-            <ActivityIndicator color={colors.textMid} />
-            <Text style={styles.scanText}>Ricerca dei server nella rete di casa…</Text>
-          </View>
-        ) : !hasFound ? (
-          <Text style={styles.scanText}>Nessun server trovato automaticamente.</Text>
-        ) : null}
-      </View>
-      <TextField value={input} placeholder="192.168.1.20 o media.esempio.it" />
+      ) : scanning ? (
+        <View style={styles.scan}>
+          <ActivityIndicator color={colors.primary} />
+          <Text style={styles.scanText}>Ricerca server Mycelium…</Text>
+        </View>
+      ) : (
+        <View style={styles.scan}>
+          <Icon name="wifiOff" size={px(40)} color="#FF9F43" />
+          <Text style={styles.scanText}>Server non trovato automaticamente</Text>
+        </View>
+      )}
+      <FieldLabel label="Indirizzo server" hint="Un IP (rete locale) o un dominio/https:// (server remoto)" />
+      <TextField inCard value={input} placeholder="192.168.1.10 o https://dominio" />
       <OnScreenKeyboard
         value={input}
         onChange={v => {
@@ -98,19 +104,22 @@ export function ConnectScreen() {
         layout="host"
         onSubmit={() => submit()}
         maxLength={253}
-        width={px(720)}
+        width={px(400)}
+        keyHeight={px(46)}
         takeFocus
       />
-      <FocusButton label="Connetti" primary={!hasFound} busy={busy} onPress={() => submit()} />
-    </CenteredScreen>
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+      <FocusButton label="Connetti" primary busy={busy} onPress={() => submit()} />
+      <TextLink label="Riprova scansione automatica" onPress={() => setScan(n => n + 1)} />
+    </AuthFrame>
   );
 }
 
 const MAX_SHOWN = 4;
 
 const styles = scaledStyles({
-  found: {alignItems: 'center', gap: space.s, minHeight: 40},
-  servers: {flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: space.s, maxWidth: 1600},
-  scan: {flexDirection: 'row', alignItems: 'center', gap: space.s},
-  scanText: {color: colors.textMid, fontSize: font.body},
+  servers: {gap: 12},
+  scan: {alignItems: 'center', gap: 12},
+  scanText: {color: 'rgba(255,255,255,0.7)', fontSize: 20, textAlign: 'center'},
+  error: {color: colors.error, fontSize: 20, textAlign: 'center'},
 });
