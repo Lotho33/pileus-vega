@@ -14,7 +14,7 @@ import {PlayerScreen} from '../player/PlayerScreen';
 import {emptyRequest, PlayRequest, requestFromCw} from '../player/session';
 import {ContextMenu, MenuAction} from '../components/ContextMenu';
 import {FocusButton} from '../components/FocusButton';
-import {InfoPopup} from '../details/InfoPopup';
+import {MediaInfoPopup} from '../details/MediaInfoPopup';
 import {mycelium} from '../core/api';
 import {canSave, myList, myListItemFrom, myListMessage, useMyList} from '../core/myList';
 import {applyCatalogPrefs, applyPluginPrefs, isPluginReady, parsePluginPrefs} from '../core/prefs';
@@ -326,7 +326,7 @@ export function HomeScreen() {
     if (myListSupported && canSave(mt) && card.open.item) {
       const saved = myList.contains(card.open.pluginId, card.open.mediaId);
       out.push({
-        icon: saved ? 'bookmark' : 'bookmarkBorder',
+        icon: saved ? 'check' : 'add',
         label: saved ? 'Rimuovi da La mia lista' : 'Aggiungi a La mia lista',
         onPress: () => {
           closeMenu();
@@ -597,17 +597,16 @@ export function HomeScreen() {
         />
       ) : null}
       {info ? (
-        <InfoPopup
+        <MediaInfoPopup
           pluginId={info.open.pluginId}
           mediaId={info.open.mediaId}
           title={info.title}
           poster={info.open.item?.posterUrl ?? info.image}
+          rating={info.open.item?.rating}
+          year={info.open.item?.year}
+          plot={info.open.item?.extra?.plot}
           W={L.W}
           H={L.H}
-          onNavigate={() => {
-            setInfo(null);
-            setStack(st => [...st, info.open]);
-          }}
           onClose={closeInfo}
         />
       ) : null}
