@@ -12,6 +12,7 @@ import {Gradient} from '../components/Gradient';
 import {Icon} from '../components/Icon';
 import {posterSrc} from '../core/images';
 import {colors, px, scaledStyles} from '../theme';
+import {sportAccentColor} from '../details/live';
 import {FOCUS_SCALE_CARD as FOCUS_SCALE} from './layout';
 import type {CardModel} from './model';
 
@@ -39,6 +40,27 @@ function Placeholder({title}: {title: string}) {
       </Text>
     </View>
   );
+}
+
+// live_card.dart _LiveBadge (on air) / _StartBadge (when it starts), top right.
+function LiveBadges({card}: {card: CardModel}) {
+  if (card.badge) {
+    return (
+      <View style={[styles.badge, styles.liveBadge]}>
+        <View style={styles.liveDot} />
+        <Text style={styles.liveText}>{card.badge}</Text>
+      </View>
+    );
+  }
+  if (card.when) {
+    return (
+      <View style={[styles.badge, styles.when]}>
+        <Icon name="schedule" size={px(28)} color="rgba(255,255,255,0.7)" />
+        <Text style={styles.whenText}>{card.when}</Text>
+      </View>
+    );
+  }
+  return null;
 }
 
 // Refs reach the Pressable so rows can move focus explicitly (core/focus).
@@ -75,7 +97,7 @@ export const PosterCard = memo(
         ) : (
           <Placeholder title={p.card.title} />
         )}
-        {p.card.badge ? <Text style={styles.live}>{p.card.badge}</Text> : null}
+        {p.card.badge ? <LiveBadges card={p.card} /> : null}
         {p.card.lang ? (
           <Text style={[styles.pill, styles.lang, {backgroundColor: p.card.lang.color}]}>{p.card.lang.label}</Text>
         ) : null}
@@ -166,13 +188,7 @@ export const LandscapeCard = memo(
             </View>
           ) : null}
         </View>
-        {c.badge ? <Text style={styles.live}>{c.badge}</Text> : null}
-        {!c.badge && c.when ? (
-          <View style={styles.when}>
-            <Icon name="schedule" size={px(14)} color="rgba(255,255,255,0.7)" />
-            <Text style={styles.whenText}>{c.when}</Text>
-          </View>
-        ) : null}
+        <LiveBadges card={c} />
       </View>
       {/* continue_watching.dart: the ring is drawn over the picture, which
           keeps filling the whole card. */}
@@ -181,6 +197,67 @@ export const LandscapeCard = memo(
   );
   }),
 );
+
+/**
+ * A live catalog's home card (live_card.dart _LiveCardView): 16:9 picture or
+ * a sport-tinted placeholder, bottom fade, title bottom left, a 3-unit
+ * accent strip, LIVE / start badge top right; focused: 1.05 and an accent
+ * border.
+ */
+export const LiveCard = memo(
+  forwardRef<View, CardProps>(function LiveCard(p, ref) {
+    const [focused, setFocused] = useState(false);
+    const c = p.card;
+    const on = focused || !!p.highlight;
+    const accent = sportAccentColor(c.sport ?? '');
+    return (
+      <Pressable
+        ref={ref}
+        hasTVPreferredFocus={p.preferred}
+        accessibilityLabel={c.title}
+        onFocus={() => {
+          setFocused(true);
+          p.onFocus();
+        }}
+        onBlur={() => {
+          setFocused(false);
+          p.onBlur?.();
+        }}
+        onPress={p.onPress}
+        onLongPress={p.onLongPress}
+        style={[{width: p.width, height: p.height}, on && styles.liveOn]}>
+        <View style={styles.liveClip}>
+          {c.image ? (
+            <Image
+              source={{uri: posterSrc(c.image, Math.round(p.width), true)}}
+              style={{width: p.width, height: p.height}}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={[StyleSheet.absoluteFill, styles.livePlaceholder, {backgroundColor: hexA(accent, 0.22)}]}>
+              <Icon name="tv" size={px(112)} color="rgba(255,255,255,0.85)" />
+            </View>
+          )}
+          <Gradient name="liveCardFade" direction="toBottom" style={StyleSheet.absoluteFill} />
+          <View style={[styles.liveStrip, {backgroundColor: accent}]} />
+          <Text style={styles.liveTitle} numberOfLines={2}>
+            {c.title}
+          </Text>
+          <LiveBadges card={c} />
+        </View>
+        <View
+          pointerEvents="none"
+          style={[styles.liveRing, {borderColor: on ? hexA(accent, 0.9) : 'transparent'}]}
+        />
+      </Pressable>
+    );
+  }),
+);
+
+function hexA(hex: string, a: number): string {
+  const n = parseInt(hex.replace('#', ''), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
 
 const styles = scaledStyles({
   // poster_card.dart: radius 8, border 3, picture clipped at 6 (×2).
@@ -215,35 +292,48 @@ const styles = scaledStyles({
     backgroundColor: 'rgba(242,242,240,0.22)',
   },
   bar: {height: '100%', backgroundColor: colors.primary},
-  live: {
+  // live_card.dart (dp of the 540 canvas, ×2): badges 12 from the corner,
+  // padding 10/4, radius 6; LIVE 15 w700 on red with an 8 dot.
+  badge: {
     position: 'absolute',
-    top: 10,
-    left: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 4,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(229,57,53,0.9)',
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  // live_card.dart _StartBadge: when a scheduled event starts.
-  when: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
+    top: 24,
+    right: 24,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  liveBadge: {backgroundColor: '#F44336'},
+  liveDot: {width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff'},
+  liveText: {color: '#fff', fontSize: 30, fontWeight: '700', letterSpacing: 1.6},
+  when: {
+    borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.24)',
     backgroundColor: 'rgba(0,0,0,0.72)',
   },
-  whenText: {color: '#fff', fontSize: 15, fontWeight: '700', letterSpacing: 0.3},
+  whenText: {color: '#fff', fontSize: 30, fontWeight: '700', letterSpacing: 0.6},
+  // _LiveCardView: radius 12, focus border 2.5 in the accent, scale 1.05,
+  // accent strip 3 tall, title 16 from the edges at 22/1080 of the height
+  // (clamped 11–30 units) w700.
+  liveOn: {transform: [{scale: 1.05}]},
+  liveClip: {flex: 1, borderRadius: 24, overflow: 'hidden', backgroundColor: colors.surface2},
+  livePlaceholder: {alignItems: 'center', justifyContent: 'center'},
+  liveStrip: {position: 'absolute', left: 0, right: 0, bottom: 0, height: 6},
+  liveTitle: {
+    position: 'absolute',
+    left: 32,
+    right: 32,
+    bottom: 32,
+    color: '#fff',
+    fontSize: 22,
+    lineHeight: 28.6,
+    fontWeight: '700',
+    textShadowColor: '#000',
+    textShadowRadius: 8,
+  },
+  liveRing: {...StyleSheet.absoluteFillObject, borderRadius: 24, borderWidth: 5},
   // poster_card.dart _StatusPill: type max(8, 10/1080·h) on the 540 canvas
   // (16 here), padding 6/2 of 1080, radius 4 and 8 from the corner (×2).
   pill: {

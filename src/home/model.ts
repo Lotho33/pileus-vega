@@ -58,6 +58,8 @@ export interface CardModel {
   badge: string;
   /** Not on air yet: when it starts ("Oggi 20:45"), top-right on live cards. */
   when?: string;
+  /** extra.sport_cat: the live card's accent colour. */
+  sport?: string;
   /** Language pill, top-right on poster cards (extra.lang/subs). */
   lang?: {label: string; color: string} | null;
   /** Film/OVA/ONA/Special/Music/Short pill, top-left on poster cards. */
@@ -85,7 +87,8 @@ export function subtypeLabel(subtype: string | undefined): string {
   }
 }
 
-export type CardVariant = 'poster' | 'landscape';
+/** 'live': a home row of a live catalog (live_row.dart / live_card.dart). */
+export type CardVariant = 'poster' | 'landscape' | 'live';
 
 /**
  * Search results that are mostly live events show as 16:9 cards, like the
@@ -97,7 +100,10 @@ export function searchVariant(items: CatalogItem[]): CardVariant {
 }
 
 export function variantFor(def: CatalogDef): CardVariant {
-  return def.cardLayout === 'landscape' || def.type === 'live' ? 'landscape' : 'poster';
+  if (def.type === 'live') {
+    return 'live';
+  }
+  return def.cardLayout === 'landscape' ? 'landscape' : 'poster';
 }
 
 function splitGenres(raw: string | undefined): string[] {
@@ -129,19 +135,25 @@ function whenShort(e: {[k: string]: string}): string {
   return at ? liveWhenShort(at) : '';
 }
 
-export function catalogCard(pluginId: string, i: CatalogItem, variant: CardVariant): CardModel {
+/**
+ * [noHeroBackground]: the catalog's disable_hero_background — its cards
+ * leave the home's full-bleed fanart empty (shell.dart _heroBackgroundDisabled).
+ */
+export function catalogCard(pluginId: string, i: CatalogItem, variant: CardVariant, noHeroBackground = false): CardModel {
   const e = i.extra ?? {};
   const isLiveNow = e.is_live === 'true' || e.is_live === '1';
+  const wide = variant !== 'poster';
   return {
     key: `${pluginId}:${i.id}`,
     open: {pluginId, mediaId: i.id, mediaType: i.mediaType, isDir: i.isDir, title: i.title, item: i},
     title: i.title,
-    image: variant === 'landscape' ? i.bannerUrl || i.posterUrl : i.posterUrl,
+    image: wide ? i.bannerUrl || i.posterUrl : i.posterUrl,
     overline: '',
     progress: 0,
     progressLabel: '',
-    badge: isLiveNow ? 'IN DIRETTA' : '',
-    when: !isLiveNow && variant === 'landscape' ? whenShort(e) : '',
+    badge: isLiveNow ? 'LIVE' : '',
+    when: !isLiveNow && wide ? whenShort(e) : '',
+    sport: e.sport_cat ?? '',
     lang: variant === 'poster' ? languageBadge(e.lang, e.subs) : null,
     subtype: variant === 'poster' ? subtypeLabel(e.subtype) : '',
     hero: {
@@ -153,7 +165,7 @@ export function catalogCard(pluginId: string, i: CatalogItem, variant: CardVaria
       rating: i.rating,
       genres: splitGenres(e.genres),
       plot: e.plot ?? '',
-      background: heroBackground(i),
+      background: noHeroBackground ? '' : heroBackground(i),
     },
   };
 }

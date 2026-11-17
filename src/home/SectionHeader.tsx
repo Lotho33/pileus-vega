@@ -13,7 +13,10 @@ export function SectionHeader({
   active,
   total,
   L,
+  large = false,
 }: {
+  /** A live catalog's row: bigger title and padding (sections.dart `large`). */
+  large?: boolean;
   title: string;
   active: number;
   total: number;
@@ -41,10 +44,10 @@ export function SectionHeader({
         styles.row,
         {
           top: L.carouselTop,
-          height: L.headerH,
+          minHeight: L.headerH,
           paddingLeft: L.hPad,
-          paddingTop: L.H * 0.017,
-          paddingBottom: L.H * 0.011,
+          paddingTop: L.H * (large ? 0.033 : 0.017),
+          paddingBottom: L.H * (large ? 0.017 : 0.011),
         },
       ]}
       pointerEvents="none">
@@ -64,9 +67,9 @@ export function SectionHeader({
           />
         </View>
       ) : (
-        <View style={[styles.bar, {width: L.H * (5 / 1080), height: L.H * 0.033}]} />
+        <View style={[styles.bar, {width: L.H * ((large ? 6 : 5) / 1080), height: L.H * (large ? 0.041 : 0.033)}]} />
       )}
-      <Text style={[styles.title, {fontSize: L.H * 0.03, marginLeft: L.H * (18 / 1080)}]} numberOfLines={1}>
+      <Text style={[styles.title, {fontSize: L.H * (large ? 0.039 : 0.03), marginLeft: L.H * (18 / 1080)}]} numberOfLines={1}>
         {title}
       </Text>
     </View>

@@ -22,4 +22,5 @@ export const GRADIENT_ASSETS = {
   avatar7: {v: require('./png/avatar7-v.png'), h: require('./png/avatar7-h.png')},
   avatar8: {v: require('./png/avatar8-v.png'), h: require('./png/avatar8-h.png')},
   avatar9: {v: require('./png/avatar9-v.png'), h: require('./png/avatar9-h.png')},
+  liveCardFade: {v: require('./png/liveCardFade-v.png'), h: require('./png/liveCardFade-h.png')},
 } as const;
