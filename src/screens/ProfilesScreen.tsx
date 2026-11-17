@@ -5,10 +5,12 @@
 // either step drops the whole creation.
 
 import React, {forwardRef, useCallback, useEffect, useRef, useState} from 'react';
-import {ActivityIndicator, Pressable, View} from 'react-native';
+import {ActivityIndicator, Dimensions, Image, Pressable, StyleSheet, View} from 'react-native';
 import {Text} from '../components/Text';
 import {Avatar} from '../components/Avatar';
 import {AvatarPicker} from '../components/AvatarPicker';
+import {Icon} from '../components/Icon';
+import {captionFont} from '../home/layout';
 import {FocusButton} from '../components/FocusButton';
 import {CenteredScreen} from '../components/Screen';
 import {OnScreenKeyboard} from '../components/OnScreenKeyboard';
@@ -20,9 +22,22 @@ import type {ProfileResponse} from '../gen/auth';
 import {errorText, useAuth} from '../state/auth';
 import {colors, font, px, scaledStyles, space} from '../theme';
 
-const ProfileTile = forwardRef<View, {p: ProfileResponse; preferred: boolean; onPress: () => void}>(
-  function ProfileTile({p, preferred, onPress}, ref) {
+// profile_selection_screen.dart, in units of its 540-tall TV canvas (k):
+// a 110-unit square, radius 16 (13 for the picture inside a 3-unit border in
+// the profile's accent color), 14 units to the name, focus scale 1.07.
+const ACCENTS = ['#7C6AF7', '#4FC3F7', '#E040FB', '#26A69A', '#EF5350'];
+function accentFor(name: string): string {
+  let h = 0;
+  for (const ch of name) {
+    h = (h * 31 + (ch.codePointAt(0) ?? 0)) | 0;
+  }
+  return ACCENTS[Math.abs(h) % ACCENTS.length];
+}
+
+const ProfileTile = forwardRef<View, {p: ProfileResponse; k: number; preferred: boolean; onPress: () => void}>(
+  function ProfileTile({p, k, preferred, onPress}, ref) {
     const [focused, setFocused] = useState(false);
+    const size = 110 * k;
     return (
       <Pressable
         ref={ref}
@@ -32,44 +47,79 @@ const ProfileTile = forwardRef<View, {p: ProfileResponse; preferred: boolean; on
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         onPress={onPress}
-        style={[styles.tile, focused && styles.tileFocused]}>
-        <View style={[styles.ring, focused && styles.ringFocused]}>
-          <Avatar name={p.name} url={p.avatarUrl} size={px(160)} />
+        style={[styles.tile, {width: size + 6 * k}, focused && styles.tileFocused]}>
+        <View>
+          <View
+            style={{
+              borderRadius: 16 * k,
+              borderWidth: 3 * k,
+              borderColor: focused ? accentFor(p.name) : 'transparent',
+            }}>
+            <Avatar name={p.name} url={p.avatarUrl} size={size} radius={13 * k} />
+          </View>
+          {p.pinProtected && !p.unlocked ? (
+            <View style={[styles.lock, {right: -4 * k, bottom: -4 * k, padding: 5 * k, borderWidth: 1.5 * k}]}>
+              <Icon name="lock" size={16 * k} color="rgba(255,255,255,0.7)" />
+            </View>
+          ) : null}
         </View>
-        <Text style={[styles.name, focused && styles.nameFocused]} numberOfLines={1}>
+        <Text
+          style={[styles.name, {marginTop: 14 * k, fontSize: captionFont(L_H())}, focused && styles.nameFocused]}
+          numberOfLines={1}>
           {p.name}
-          {p.pinProtected && !p.unlocked ? '  🔒' : ''}
         </Text>
       </Pressable>
     );
   },
 );
 
-const AddProfileTile = forwardRef<View, {onPress: () => void; preferred?: boolean}>(function AddProfileTile(
-  {onPress, preferred},
+const AddProfileTile = forwardRef<View, {k: number; onPress: () => void; preferred?: boolean}>(function AddProfileTile(
+  {k, onPress, preferred},
   ref,
 ) {
   const [focused, setFocused] = useState(false);
+  const size = 110 * k;
   return (
     <Pressable
       ref={ref}
       hasTVPreferredFocus={preferred}
-      accessibilityLabel="Nuovo profilo"
+      accessibilityLabel="Aggiungi profilo"
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
       onPress={onPress}
-      style={[styles.tile, focused && styles.tileFocused]}>
-      <View style={[styles.ring, focused && styles.ringFocused]}>
-        <View style={styles.add}>
-          <Text style={[styles.plus, focused && styles.nameFocused]}>+</Text>
-        </View>
+      style={[styles.tile, {width: size + 6 * k}, focused && styles.tileFocused]}>
+      <View
+        style={[
+          styles.add,
+          {width: size + 6 * k, height: size + 6 * k, borderRadius: 16 * k, borderWidth: 3 * k},
+          focused && styles.addFocused,
+        ]}>
+        <Icon name="add" size={size * 0.35} color={focused ? '#fff' : 'rgba(255,255,255,0.38)'} />
       </View>
-      <Text style={[styles.name, focused && styles.nameFocused]} numberOfLines={1}>
-        Nuovo profilo
+      <Text style={[styles.addLabel, {marginTop: 14 * k, fontSize: captionFont(L_H())}, focused && styles.addLabelOn]}>
+        Aggiungi profilo
       </Text>
     </Pressable>
   );
 });
+
+/** "Cambia server": a plain text link under the tiles. */
+const TextLink = forwardRef<View, {label: string; onPress: () => void}>(function TextLink({label, onPress}, ref) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <Pressable
+      ref={ref}
+      accessibilityLabel={label}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      onPress={onPress}
+      style={styles.link}>
+      <Text style={[styles.linkText, {fontSize: captionFont(L_H())}, focused && styles.linkOn]}>{label}</Text>
+    </Pressable>
+  );
+});
+
+const L_H = () => Dimensions.get('window').height;
 
 export function ProfilesScreen() {
   const {session, selectProfile, changeServer} = useAuth();
@@ -175,15 +225,29 @@ export function ProfilesScreen() {
   }
 
   // The creation steps are full-screen overlays, outside the centered column.
+  // profile_selection_screen.dart: a violet radial glow above the middle,
+  // the title (sh·0.030, w700), 64.8/1080 to the tiles, 32/1080 to
+  // "Cambia server" as a text link.
+  const H = L_H();
+  const k = H / 540;
   return (
     <View style={styles.fill}>
-      <CenteredScreen title="Chi sta guardando?" error={error}>
+      <View style={styles.screen}>
+        {/* Explicit size: absoluteFill alone left the Image at its natural
+            size on Vega. */}
+        <Image
+          source={GLOW}
+          style={[StyleSheet.absoluteFill, {width: Dimensions.get('window').width, height: H}]}
+          resizeMode="stretch"
+        />
+        <Text style={[styles.title, {fontSize: H * 0.03}]}>Chi sta guardando?</Text>
+        <View style={{height: (H * 64.8) / 1080}} />
         {profiles === null ? (
           <ActivityIndicator size="large" color={colors.primary} />
         ) : profiles.length === 0 && error ? (
           // The list couldn't be read. With none on the server (a new
           // install, or the last one deleted) the row below still offers
-          // "Nuovo profilo", as _ProfileRow always does in pileus-player:
+          // "Aggiungi profilo", as _ProfileRow always does in pileus-player:
           // without it there was no way past this screen.
           <View style={styles.row}>
             <FocusButton label="Riprova" primary onPress={load} hasTVPreferredFocus />
@@ -191,7 +255,7 @@ export function ProfilesScreen() {
           </View>
         ) : (
           <>
-            <View style={styles.row}>
+            <View style={[styles.row, {gap: (H * 40) / 1080}]}>
               {profiles.map((p, i) => (
                 <ProfileTile
                   key={p.profileId}
@@ -203,20 +267,24 @@ export function ProfilesScreen() {
                     }
                   }}
                   p={p}
+                  k={k}
                   preferred={session.lastProfileId ? p.profileId === session.lastProfileId : i === 0}
                   onPress={() => choose(p)}
                 />
               ))}
               <AddProfileTile
                 ref={addRef}
+                k={k}
                 preferred={profiles.length === 0}
                 onPress={() => setCreating({step: 'name'})}
               />
             </View>
-            <FocusButton label="Cambia server" onPress={changeServer} style={{marginTop: px(space.l)}} />
+            <View style={{height: (H * 32) / 1080}} />
+            <TextLink label="Cambia server" onPress={changeServer} />
           </>
         )}
-      </CenteredScreen>
+        {error && profiles?.length ? <Text style={styles.error}>{error}</Text> : null}
+      </View>
       {creating?.step === 'name' ? (
         <TextDialog
           title="Nuovo profilo"
@@ -240,25 +308,35 @@ export function ProfilesScreen() {
   );
 }
 
+const GLOW = require('../../assets/image/profile_glow.png');
+
 const styles = scaledStyles({
   fill: {flex: 1},
-  row: {flexDirection: 'row', gap: space.l, flexWrap: 'wrap', justifyContent: 'center'},
+  screen: {flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg},
+  title: {color: '#fff', fontWeight: '700', letterSpacing: -1},
+  row: {flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center'},
   pin: {width: 360},
-  tile: {alignItems: 'center', width: 220},
-  tileFocused: {transform: [{scale: 1.08}]},
-  ring: {borderRadius: 90, borderWidth: 4, borderColor: 'transparent', padding: 6},
-  ringFocused: {borderColor: colors.textHigh},
-  name: {color: colors.textMid, fontSize: font.body, marginTop: space.s},
-  nameFocused: {color: colors.textHigh, fontWeight: '700'},
+  tile: {alignItems: 'center'},
+  tileFocused: {transform: [{scale: 1.07}]},
+  name: {color: 'rgba(255,255,255,0.7)', fontWeight: '500', textAlign: 'center'},
+  nameFocused: {color: '#fff', fontWeight: '700'},
+  lock: {
+    position: 'absolute',
+    borderRadius: 40,
+    borderColor: 'rgba(255,255,255,0.24)',
+    backgroundColor: '#1C1C2E',
+  },
   add: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: colors.border,
-    backgroundColor: colors.surface2,
+    borderColor: 'rgba(255,255,255,0.24)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
   },
-  plus: {color: colors.textMid, fontSize: 72, fontWeight: '300'},
+  addFocused: {borderColor: '#fff', backgroundColor: 'rgba(255,255,255,0.08)'},
+  addLabel: {color: 'rgba(255,255,255,0.38)'},
+  addLabelOn: {color: '#fff'},
+  link: {paddingHorizontal: 16, paddingVertical: 8},
+  linkText: {color: 'rgba(255,255,255,0.38)'},
+  linkOn: {color: '#fff'},
+  error: {color: colors.error, fontSize: font.body, marginTop: space.m, textAlign: 'center'},
 });

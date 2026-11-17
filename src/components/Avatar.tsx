@@ -81,19 +81,21 @@ export function initialOf(name: string): string {
   return c.toUpperCase();
 }
 
-function Photo({name, url, size}: {name: string; url: string; size: number}) {
+function Photo({name, url, size, radius}: {name: string; url: string; size: number; radius: number}) {
   const src = useAvatarSource(url);
-  const box = {width: size, height: size, borderRadius: size / 2};
+  const box = {width: size, height: size, borderRadius: radius};
   if (!src) {
     return <View accessibilityLabel={name} style={[box, styles.image]} />;
   }
   return <Image accessibilityLabel={name} source={{uri: src}} style={[box, styles.image]} />;
 }
 
-export function Avatar({name, url, size}: {name: string; url: string; size: number}) {
-  const box = {width: size, height: size, borderRadius: size / 2};
+/** `radius`: corner radius; a circle when left out. */
+export function Avatar({name, url, size, radius}: {name: string; url: string; size: number; radius?: number}) {
+  const r = radius ?? size / 2;
+  const box = {width: size, height: size, borderRadius: r};
   if (url && !url.startsWith(SCHEME)) {
-    return <Photo name={name} url={url} size={size} />;
+    return <Photo name={name} url={url} size={size} radius={r} />;
   }
   const idx = url ? avatarIndex(url) : 0;
   const a = AVATARS[idx];
