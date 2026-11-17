@@ -149,8 +149,9 @@ export function InfoPopup({
           <View style={[styles.poster, {width: posterW}]}>
             {resolvedPoster ? (
               <Image
-                source={{uri: posterSrc(resolvedPoster, Math.round(posterW))}}
-                style={StyleSheet.absoluteFill}
+                source={{uri: posterSrc(resolvedPoster, Math.round(posterW), true)}}
+                // Vega doesn't stretch an Image to absoluteFill alone.
+                style={{width: posterW, height: dialogH - barH}}
                 resizeMode="cover"
               />
             ) : null}
