@@ -32,7 +32,7 @@ export function MyListChip({
   return (
     <ActionChip
       s={s}
-      icon={saved ? 'bookmark' : 'bookmarkBorder'}
+      icon={saved ? 'check' : 'add'}
       label={saved ? 'Nella mia lista' : 'La mia lista'}
       onPress={() =>
         myList
@@ -50,7 +50,7 @@ export function TrailerChip({s, url, onToast}: {s: number; url: string; onToast:
   return (
     <ActionChip
       s={s}
-      icon="trailer"
+      icon="movie"
       label="Trailer"
       onPress={() =>
         openTrailer(url).then(ok => {

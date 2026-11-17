@@ -12,7 +12,7 @@ import {useWarm} from '../core/warm';
 import type {StreamSource} from '../gen/media';
 import {preferredFirst, parsePreferredLanguage} from '../core/language';
 import {errorText, useAuth} from '../state/auth';
-import {colors, scaledStyles} from '../theme';
+import {colors, px, scaledStyles} from '../theme';
 
 export interface SourcesState {
   pluginId: string;
@@ -58,46 +58,58 @@ export function useSources(pluginId: string, mediaId: string, seriesId = ''): So
   return {pluginId, sources, loading, error, reload};
 }
 
-// Two sizes, as in pileus-player: the details page's watch button and the
-// smaller PopupPlayButton of the popups.
+// Two sizes, as in pileus-player: the details page's single watch button
+// (watch_button.dart _buildSingleButton: "Guarda", "Riprendi «…»") and the
+// PopupPlayButton used for one-per-language buttons and in the popups. Both
+// are sized in 1080p pixels (sh × n/1080 there, px() here), not with the
+// page's content scale; radius 8 and borders 1–2 are units of its 540-tall
+// canvas, doubled. `s` is kept for the callers but no longer sizes them.
 export const PlayButton = forwardRef<
   View,
   {label: string; s: number; primary?: boolean; compact?: boolean; icon?: IconName; onPress: () => void}
->(function PlayButton({label, s, primary, compact, icon = 'play', onPress}, ref) {
-    const [focused, setFocused] = useState(false);
-    return (
-      <Pressable
-        ref={ref}
-        accessibilityLabel={label}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        onPress={onPress}
+>(function PlayButton({label, primary, compact, icon = 'play', onPress}, ref) {
+  const [focused, setFocused] = useState(false);
+  const lit = focused || !!primary;
+  return (
+    <Pressable
+      ref={ref}
+      accessibilityLabel={label}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      onPress={onPress}
+      style={[
+        styles.btn,
+        compact
+          ? [styles.popupBtn, primary && styles.popupPrimary, focused && styles.popupFocused]
+          : [styles.bigBtn, focused && styles.bigFocused],
+      ]}>
+      <Icon
+        name={icon}
+        size={px(compact ? 20 : 24)}
+        color={compact && !lit ? colors.textMid : colors.textHigh}
+      />
+      <Text
         style={[
-          styles.btn,
-          compact
-            ? {paddingHorizontal: 24 * s, paddingVertical: 12 * s, gap: 8 * s}
-            : {paddingHorizontal: 40 * s, paddingVertical: 18 * s, gap: 8 * s},
-          primary && styles.btnPrimary,
-          focused && styles.btnFocused,
-        ]}>
-        <Icon name={icon} size={(compact ? 20 : 24) * s} color={colors.textHigh} />
-        <Text style={[styles.btnText, {fontSize: (compact ? 15 : 20) * s}]} numberOfLines={1}>
-          {label}
-        </Text>
-      </Pressable>
-    );
+          compact ? styles.popupText : styles.bigText,
+          {color: compact && !lit ? colors.textMid : colors.textHigh},
+        ]}
+        numberOfLines={1}>
+        {label}
+      </Text>
+    </Pressable>
+  );
 });
 
 /**
  * A secondary action beside the watch buttons ("Scarica", "La mia lista",
  * "Trailer"), not a second one of equal weight: ghost outline, smaller text
- * (watch_button.dart's _DownloadChip, details_actions.dart). The ref lets a
- * closing dialog put focus back.
+ * (details_actions.dart detailsSecondaryChip). The ref lets a closing dialog
+ * put focus back.
  */
 export const ActionChip = forwardRef<
   View,
   {s: number; icon: IconName; label: string; onPress: () => void}
->(function ActionChip({s, icon, label, onPress}, ref) {
+>(function ActionChip({icon, label, onPress}, ref) {
   const [focused, setFocused] = useState(false);
   const color = focused ? colors.textHigh : colors.textMid;
   return (
@@ -107,13 +119,9 @@ export const ActionChip = forwardRef<
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
       onPress={onPress}
-      style={[
-        styles.chip,
-        {paddingHorizontal: 20 * s, paddingVertical: 10 * s, gap: 6 * s},
-        focused && styles.chipFocused,
-      ]}>
-      <Icon name={icon} size={16 * s} color={color} />
-      <Text style={[styles.chipText, {fontSize: 15 * s, color}]}>{label}</Text>
+      style={[styles.chip, focused && styles.chipFocused]}>
+      <Icon name={icon} size={px(14)} color={color} />
+      <Text style={[styles.chipText, {color}]}>{label}</Text>
     </Pressable>
   );
 });
@@ -177,7 +185,7 @@ export function SourceButtons({
   }
   if (resumeLabel && onResume) {
     return (
-      <View style={[styles.wrap, {justifyContent: align, gap: 12 * s}]}>
+      <View style={[styles.wrap, {justifyContent: align, gap: px(24)}]}>
         <PlayButton compact={compact} ref={first} label={resumeLabel} s={s} primary onPress={onResume} />
         {state.sources.length ? trailing : null}
         {actions}
@@ -188,7 +196,7 @@ export function SourceButtons({
     return (
       <View style={{alignItems: align}}>
         <Text style={[styles.note, {fontSize: 15 * s}]}>{state.error}</Text>
-        <View style={[styles.wrap, {justifyContent: align, gap: 12 * s}]}>
+        <View style={[styles.wrap, {justifyContent: align, gap: px(24)}]}>
           <PlayButton compact={compact} ref={first} label="Riprova" s={s} onPress={state.reload} />
           {actions}
         </View>
@@ -199,7 +207,7 @@ export function SourceButtons({
     return (
       <View style={{alignItems: align}}>
         <Text style={[styles.note, {fontSize: 15 * s}]}>Nessuna fonte disponibile.</Text>
-        <View style={[styles.wrap, {justifyContent: align, gap: 12 * s}]}>
+        <View style={[styles.wrap, {justifyContent: align, gap: px(24)}]}>
           <PlayButton compact={compact} ref={first} label="Riprova" s={s} onPress={state.reload} />
           {actions}
         </View>
@@ -208,7 +216,7 @@ export function SourceButtons({
   }
   if (state.sources.length === 1) {
     return (
-      <View style={[styles.wrap, {justifyContent: align, gap: 12 * s}]}>
+      <View style={[styles.wrap, {justifyContent: align, gap: px(24)}]}>
         <PlayButton compact={compact} ref={first} label="Guarda" s={s} primary onPress={() => onPlay(state.sources[0])} />
         {trailing}
         {actions}
@@ -217,11 +225,12 @@ export function SourceButtons({
   }
   return (
     <View style={{alignItems: align}}>
-      <Text style={[styles.header, {fontSize: 13 * s, marginBottom: 12 * s}]}>SELEZIONA LINGUA</Text>
-      <View style={[styles.wrap, {justifyContent: align, gap: 12 * s}]}>
+      <Text style={styles.header}>SELEZIONA LINGUA</Text>
+      <View style={[styles.wrap, {justifyContent: align, gap: px(24)}]}>
         {state.sources.map((src, i) => (
+          // One per language: PopupPlayButton on the details page too.
           <PlayButton
-            compact={compact}
+            compact
             key={src.id}
             ref={i === 0 ? first : undefined}
             label={src.label || 'Guarda'}
@@ -239,26 +248,47 @@ export function SourceButtons({
 
 const styles = scaledStyles({
   wrap: {flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center'},
-  btn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 8,
+  btn: {flexDirection: 'row', alignItems: 'center'},
+  // _buildSingleButton: padding 40/18, white 24% with a textLow border;
+  // focused: the primary color, no border.
+  bigBtn: {
+    paddingHorizontal: 40,
+    paddingVertical: 18,
+    gap: 8,
+    borderRadius: 16,
     borderWidth: 2,
     borderColor: colors.textLow,
     backgroundColor: 'rgba(255,255,255,0.24)',
   },
-  btnPrimary: {borderColor: 'transparent'},
-  btnFocused: {backgroundColor: colors.primary, borderColor: colors.primary, transform: [{scale: 1.05}]},
-  btnText: {color: colors.textHigh, fontWeight: '700'},
+  bigFocused: {backgroundColor: colors.primary, borderColor: colors.primary},
+  bigText: {fontSize: 20, fontWeight: '700'},
+  // PopupPlayButton: padding 24/12; the preferred language tinted primary,
+  // the others white 12%; focused: primary with a white border.
+  popupBtn: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    gap: 8,
+    borderRadius: 16,
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.24)',
+    backgroundColor: 'rgba(242,242,240,0.12)',
+  },
+  popupPrimary: {borderColor: colors.primary, backgroundColor: 'rgba(124,106,247,0.55)'},
+  popupFocused: {borderWidth: 4, borderColor: '#fff', backgroundColor: colors.primary},
+  popupText: {fontSize: 15, fontWeight: '600'},
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 6,
-    borderWidth: 1,
+    gap: 6,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 2,
     borderColor: colors.textLow,
   },
   chipFocused: {backgroundColor: colors.primary, borderColor: colors.primary},
-  chipText: {fontWeight: '600'},
-  header: {color: colors.textLow, fontWeight: '700', letterSpacing: 1.5},
+  chipText: {fontSize: 14, fontWeight: '600'},
+  // 11 type, w700, letterSpacing 1.5 units, 12 units above the buttons.
+  header: {color: colors.textLow, fontSize: 11, fontWeight: '700', letterSpacing: 3, marginBottom: 24},
   note: {color: colors.textLow, marginBottom: 10},
 });

@@ -10,5 +10,6 @@ describe('Text font', () => {
     expect(fontFamilyFor('bold')).toBe('DMSans-Bold');
     expect(fontFamilyFor('800')).toBe('DMSans-Bold');
     expect(fontFamilyFor('900')).toBe('DMSans-Bold');
+    expect(fontFamilyFor('700', true)).toBe('DMSans-Italic');
   });
 });
