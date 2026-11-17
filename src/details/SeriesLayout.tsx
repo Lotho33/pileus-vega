@@ -27,17 +27,18 @@ import type {
 import {emptyRequest, PlayRequest} from '../player/session';
 import type {HomeLayout} from '../home/layout';
 import type {CardModel} from '../home/model';
-import {colors, scaledStyles} from '../theme';
+import {colors, px, scaledStyles} from '../theme';
 import {
   BackButton,
   Backdrop,
   catalogHPadRatio,
+  contentScale,
+  detailsEpisodeTileHRatio,
   detailsGapRatio,
   detailsInfoWRatio,
   detailsPosterWRatio,
   detailsVPadRatio,
   GenreChips,
-  MetaRow,
   Poster,
 } from './common';
 import {MyListChip, TrailerChip} from './DetailActions';
@@ -48,9 +49,12 @@ import {RelatedRow} from './RelatedRow';
 const PAGE = 5;
 /** A ↓/→ this soon after an episode got focus is the press that moved it. */
 const ENTRY_KEY_MS = 150;
+// season_pill.dart: sizes in units of pileus-player's 540-tall canvas (`k`):
+// text 12 (13.2 selected), padding 12/6, radius 28, outline 1.5. Selected:
+// filled primary; focused: primary 30% with a primary outline.
 const SeasonPill = memo(
-  forwardRef<View, {label: string; selected: boolean; s: number; onPress: () => void}>(function SeasonPill(
-    {label, selected, s, onPress},
+  forwardRef<View, {label: string; selected: boolean; k: number; onPress: () => void}>(function SeasonPill(
+    {label, selected, k, onPress},
     ref,
   ) {
     const [focused, setFocused] = useState(false);
@@ -63,11 +67,19 @@ const SeasonPill = memo(
         onPress={onPress}
         style={[
           styles.pill,
-          {paddingHorizontal: 18 * s, paddingVertical: 10 * s},
-          selected && styles.pillSelected,
-          focused && styles.pillFocused,
+          {paddingHorizontal: 12 * k, paddingVertical: 6 * k, borderRadius: 28 * k, borderWidth: 1.5 * k},
+          selected ? styles.pillSelected : focused ? styles.pillFocused : null,
         ]}>
-        <Text style={[styles.pillText, {fontSize: 18 * s}, (selected || focused) && styles.textOn]}>{label}</Text>
+        <Text
+          style={[
+            styles.pillText,
+            {fontSize: 12 * k * (selected ? 1.1 : 1)},
+            (selected || focused) && styles.textOn,
+            selected && styles.pillTextSelected,
+          ]}
+          numberOfLines={1}>
+          {label}
+        </Text>
       </Pressable>
     );
   }),
@@ -151,11 +163,37 @@ const EpisodeRow = memo(
   ),
 );
 
-function InfoChip({icon, text, s}: {icon: 'schedule' | 'tv'; text: string; s: number}) {
+// related_popup.dart _InfoChip: plain icon + text, white 54%, 1080p sizes.
+function InfoChip({icon, text}: {icon: 'schedule' | 'tv'; text: string; s?: number}) {
   return (
-    <View style={[styles.infoChip, {paddingHorizontal: 10 * s, paddingVertical: 4 * s, gap: 6 * s}]}>
-      <Icon name={icon} size={16 * s} color={colors.textLow} />
-      <Text style={[styles.infoChipText, {fontSize: 14 * s}]}>{text}</Text>
+    <View style={styles.infoChip}>
+      <Icon name={icon} size={px(18)} color="rgba(255,255,255,0.54)" />
+      <Text style={styles.infoChipText}>{text}</Text>
+    </View>
+  );
+}
+
+// _SeasonRatingRow: ★ rating, the season's air date, the content rating —
+// no year: with no air date the row just has less in it.
+function SeasonRatingRow({rating, airDate, contentRating}: {rating: number; airDate: string; contentRating: string}) {
+  const date = airDate ? fmtAirDate(airDate) : '';
+  if (!(rating > 0) && !date && !contentRating) {
+    return null;
+  }
+  return (
+    <View style={styles.ratingRow}>
+      {rating > 0 ? (
+        <View style={styles.ratingItem}>
+          <Icon name="star" size={px(15)} color="#FFD700" />
+          <Text style={styles.ratingText}>{rating.toFixed(1)}</Text>
+        </View>
+      ) : null}
+      {date ? <Text style={styles.airDate}>{date}</Text> : null}
+      {contentRating ? (
+        <View style={styles.crBadge}>
+          <Text style={styles.crText}>{contentRating}</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -198,7 +236,10 @@ export function SeriesLayout({
   onToast: (text: string) => void;
 }) {
   const {W, H} = L;
-  const s = H / 1080;
+  // u: 1080p pixels; k: one unit of pileus-player's 540-tall TV canvas;
+  // s: contentScale (floor 0.7 on this page), once hasRelated is known.
+  const u = H / 1080;
+  const k = H / 540;
   const keplerBack = useKeplerBackHandler();
   const myListSupported = useMyList().supported;
   const [seasonIdx, setSeasonIdx] = useState(0);
@@ -313,20 +354,27 @@ export function SeriesLayout({
   const fanart = sd?.fanartUrl || item.extra?.fanart_url || item.posterUrl;
   const plot = season?.overview || sd?.plot || '';
 
+  const s = contentScale(H, hasRelated, 0.7);
   const hPad = W * catalogHPadRatio;
-  const topBarH = 24 * s + 48 * s;
+  // EdgeInsets.fromLTRB(40, 24, 40, 0) around the back button.
+  const topBarH = 24 * k + 48 * u;
   const h = H - topBarH;
   const footerH = hasRelated ? Math.min(h * 0.4, h * 0.5) : 0;
   const mainH = h - footerH;
-  const cardH = hasRelated ? Math.max(76 * s, Math.min(330 * s, footerH * 0.72)) : 0;
+  const cardH = hasRelated ? Math.max(76 * k, Math.min(330 * k, footerH * 0.86)) : 0;
   const posterBase = W * detailsPosterWRatio;
   const posterW = hasRelated ? posterBase : Math.min(posterBase * 1.3, Math.max(posterBase, mainH / 1.5));
-  const pillsH = seasons.length > 1 ? 20 * s * 2 + 18 * s * 1.5 + 10 : 0;
-  const headerH = 20 * s * 1.3 + 8;
-  const avail = Math.max(0, mainH - H * detailsVPadRatio - 16 - pillsH - headerH);
+  // page.dart: the pills row (season_pill.dart's own sizes, with headroom
+  // for the selected pill's bigger type) and the episode header row.
+  const pillsH = (12 + 12 * 1.1 * 1.35) * k;
+  const pillsBlockH = seasons.length > 1 ? pillsH + 10 * k : 0;
+  const headerH = (22 + 8) * k;
+  const avail = Math.max(0, mainH - (h * detailsVPadRatio + 16 * k) - pillsBlockH - headerH);
+  // tileHFit: avail over five rows, at most h·100/1080, at least 40 units.
   // Whole pixels: the window slides by tileH per row, so each row must take
   // exactly that (fractional heights crept a little further every step).
-  const tileH = Math.round(Math.max(40, Math.min(100 * s, avail / PAGE)));
+  const tileMax = h * detailsEpisodeTileHRatio;
+  const tileH = Math.round(Math.max(Math.min(tileMax, 40 * k), Math.min(tileMax, avail / PAGE)));
   const winEnd = Math.min(start + PAGE, episodes.length);
   const downloadMeta = (ep: EpisodeInfo): DownloadMeta => ({
     mediaId: ep.id,
@@ -343,8 +391,8 @@ export function SeriesLayout({
   return (
     <View style={styles.root}>
       <Backdrop url={fanart} W={W} shade="seriesShade" />
-      <View style={{paddingHorizontal: 40 * s, paddingTop: 24 * s, height: topBarH}}>
-        <BackButton s={s} onPress={onBack} />
+      <View style={{paddingHorizontal: 40 * k, paddingTop: 24 * k, height: topBarH}}>
+        <BackButton s={u} onPress={onBack} />
       </View>
       <View style={[styles.main, {height: mainH, paddingHorizontal: hPad, paddingTop: H * detailsVPadRatio}]}>
         <Poster url={poster} title={item.title} width={posterW} />
@@ -358,12 +406,10 @@ export function SeriesLayout({
             </Text>
           ) : null}
           <View style={{marginTop: 6 * s}}>
-            <MetaRow
+            <SeasonRatingRow
               rating={item.rating}
-              year={season?.airDate ? 0 : item.year}
-              extra={season?.airDate ? fmtAirDate(season.airDate) : ''}
-              contentRating={sd?.contentRating}
-              s={s}
+              airDate={season?.airDate ?? ''}
+              contentRating={item.extra?.content_rating || sd?.contentRating || ''}
             />
           </View>
           {sd?.genres?.length ? (
@@ -372,7 +418,8 @@ export function SeriesLayout({
             </View>
           ) : null}
           {sd && (sd.episodeRuntime || sd.network || sd.status) ? (
-            <View style={[styles.chips, {marginTop: 6 * s}]}>
+            // SizedBox(8 * s) after the genres, then (6 * s) before the chips.
+            <View style={[styles.chips, {marginTop: (sd.genres?.length ? 14 : 6) * s}]}>
               {sd.episodeRuntime ? <InfoChip icon="schedule" text={sd.episodeRuntime} s={s} /> : null}
               {sd.network ? <InfoChip icon="tv" text={sd.network} s={s} /> : null}
               {sd.status ? <InfoChip icon="schedule" text={fmtStatus(sd.status)} s={s} /> : null}
@@ -403,7 +450,7 @@ export function SeriesLayout({
                     key={i}
                     label={seasonLabel(seasons, i)}
                     selected={i === seasonIdx}
-                    s={s}
+                    k={k}
                     onPress={() => loadSeason(i)}
                   />
                 ))}
@@ -412,11 +459,11 @@ export function SeriesLayout({
           ) : null}
           <View style={[styles.epHeader, {height: headerH}]}>
             <View style={styles.tick} />
-            <Text style={[styles.epHeaderText, {fontSize: 20 * s}]}>
+            <Text style={styles.epHeaderText}>
               {seasons.length === 1 ? seasonLabel(seasons, 0) : 'Episodi'}
             </Text>
             {episodes.length > PAGE ? (
-              <Text style={[styles.low, {fontSize: 15 * s}]}>
+              <Text style={styles.epCount}>
                 {start + 1}–{winEnd} / {episodes.length}
               </Text>
             ) : null}
@@ -578,14 +625,15 @@ const styles = scaledStyles({
   title: {color: colors.textHigh, fontWeight: '800', letterSpacing: -0.5},
   seasonLine: {color: colors.primary, fontWeight: '600'},
   low: {color: colors.textLow},
-  chips: {flexDirection: 'row', flexWrap: 'wrap', gap: 6},
-  infoChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 16,
-    backgroundColor: 'rgba(242,242,240,0.06)',
-  },
-  infoChipText: {color: colors.textMid},
+  chips: {flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, rowGap: 10},
+  infoChip: {flexDirection: 'row', alignItems: 'center', gap: 5},
+  infoChipText: {color: 'rgba(255,255,255,0.54)', fontSize: 16},
+  ratingRow: {flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 24, rowGap: 12},
+  ratingItem: {flexDirection: 'row', alignItems: 'center', gap: 4},
+  ratingText: {color: colors.textMid, fontSize: 13, fontWeight: '600'},
+  airDate: {color: 'rgba(255,255,255,0.54)', fontSize: 13},
+  crBadge: {paddingHorizontal: 14, paddingVertical: 4, borderWidth: 2, borderColor: colors.textLow, borderRadius: 8},
+  crText: {color: 'rgba(255,255,255,0.54)', fontSize: 11, fontWeight: '600', letterSpacing: 1},
   plot: {color: 'rgba(255,255,255,0.63)'},
   epLang: {
     color: '#fff',
@@ -596,19 +644,17 @@ const styles = scaledStyles({
     overflow: 'hidden',
   },
   pills: {flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4},
-  pill: {
-    borderRadius: 24,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    backgroundColor: 'rgba(242,242,240,0.08)',
-  },
-  pillSelected: {backgroundColor: 'rgba(124,106,247,0.35)'},
-  pillFocused: {borderColor: colors.primary},
-  pillText: {color: colors.textMid, fontWeight: '600'},
+  pill: {borderColor: 'rgba(242,242,240,0.30)', backgroundColor: 'rgba(26,26,46,0.85)'},
+  pillSelected: {backgroundColor: colors.primary, borderWidth: 0},
+  pillFocused: {borderColor: colors.primary, backgroundColor: 'rgba(124,106,247,0.30)'},
+  pillText: {color: colors.textMid, fontWeight: '500'},
+  pillTextSelected: {fontWeight: '700'},
   textOn: {color: colors.textHigh},
   epHeader: {flexDirection: 'row', alignItems: 'center', gap: 10},
-  tick: {width: 3, height: 22, borderRadius: 2, backgroundColor: colors.primary},
-  epHeaderText: {color: colors.textHigh, fontWeight: '700'},
+  // page.dart: a 3×22-unit tick, 10 units before the label (×2 here).
+  tick: {width: 6, height: 44, borderRadius: 4, backgroundColor: colors.primary, marginRight: 10},
+  epHeaderText: {color: colors.textHigh, fontWeight: '700', fontSize: 20},
+  epCount: {color: colors.textLow, fontSize: 15, marginLeft: 2},
   window: {overflow: 'hidden'},
   dim: {opacity: 0.45},
   dimOut: {opacity: 0},
