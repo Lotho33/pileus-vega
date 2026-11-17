@@ -11,6 +11,7 @@ import React, {useEffect, useRef, useState} from 'react';
 import {ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, useWindowDimensions, View} from 'react-native';
 import {Text} from '../components/Text';
 import {TVFocusGuideView, useKeplerBackHandler} from '@amazon-devices/react-native-kepler';
+import {Bands, Gradient} from '../components/Gradient';
 import {Icon} from '../components/Icon';
 import {focusSoon} from '../core/focus';
 import {backdropSrc} from '../core/images';
@@ -118,16 +119,33 @@ export function LivePopup({
         trapFocusRight
         trapFocusUp
         trapFocusDown>
-        <View style={[styles.hero, {height: (width * 9) / 16, backgroundColor: `${accent}33`}]}>
-          {home && away ? (
+        {/* live_event_popup.dart _HeroArea: accent .35 fading into #111, the
+            poster (else the two team badges), an 80-unit fade into the body. */}
+        <View style={[styles.hero, {height: (width * 9) / 16}]}>
+          <Bands
+            stops={[
+              {offset: 0, color: accent, opacity: 0.35},
+              {offset: 1, color: accent, opacity: 0},
+            ]}
+            direction="toBottom"
+            style={StyleSheet.absoluteFill}
+          />
+          {item.posterUrl ? (
+            <Image
+              source={{uri: backdropSrc(item.posterUrl, width, true)}}
+              style={{position: 'absolute', top: 0, left: 0, width, height: (width * 9) / 16}}
+              resizeMode="cover"
+            />
+          ) : home && away ? (
             <View style={[styles.badges, {gap: 24 * u}]}>
               <Image source={{uri: home}} style={{width: 90 * k, height: 90 * k}} resizeMode="contain" />
               <Text style={[styles.vs, {fontSize: 18 * k}]}>vs</Text>
               <Image source={{uri: away}} style={{width: 90 * k, height: 90 * k}} resizeMode="contain" />
             </View>
-          ) : item.posterUrl ? (
-            <Image source={{uri: backdropSrc(item.posterUrl, width)}} style={StyleSheet.absoluteFill} resizeMode="cover" />
           ) : null}
+          <View style={{position: 'absolute', left: 0, right: 0, bottom: 0, height: 80 * u}} pointerEvents="none">
+            <Gradient name="liveHeroFade" direction="toBottom" />
+          </View>
           <Pressable
             ref={closeRef}
             accessibilityLabel="Chiudi"
@@ -139,7 +157,7 @@ export function LivePopup({
               {top: 8 * u, right: 8 * u, width: 34 * u, height: 34 * u, borderRadius: 17 * u},
               closeFocused && styles.closeFocused,
             ]}>
-            <Icon name="close" size={18 * k} color={closeFocused ? '#fff' : colors.textMid} />
+            <Icon name="close" size={18 * k} color="#fff" />
           </Pressable>
         </View>
         <View style={{paddingHorizontal: 20 * u, paddingTop: 14 * u, paddingBottom: 20 * u}}>
@@ -228,18 +246,19 @@ const styles = scaledStyles({
     justifyContent: 'center',
   },
   card: {borderWidth: 1, overflow: 'hidden', backgroundColor: '#0E0E0E'},
-  hero: {alignItems: 'center', justifyContent: 'center'},
+  hero: {alignItems: 'center', justifyContent: 'center', backgroundColor: '#111111'},
   badges: {flexDirection: 'row', alignItems: 'center'},
   vs: {color: 'rgba(255,255,255,0.7)', fontWeight: '700'},
   close: {
     position: 'absolute',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    // _CloseButton: white24 ring on black .55; focused white70 on white .25.
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.24)',
+    backgroundColor: 'rgba(0,0,0,0.55)',
   },
-  closeFocused: {borderColor: colors.primary, backgroundColor: 'rgba(124,106,247,0.35)'},
+  closeFocused: {borderColor: 'rgba(255,255,255,0.7)', backgroundColor: 'rgba(255,255,255,0.25)'},
   chips: {flexDirection: 'row', alignItems: 'center'},
   sport: {borderWidth: 1},
   sportText: {fontWeight: '700', letterSpacing: 1},
