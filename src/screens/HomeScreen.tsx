@@ -590,6 +590,7 @@ export function HomeScreen() {
       ) : null}
       {menu && menuActions.length ? (
         <ContextMenu
+          wide={!!menu.card.open.cw}
           title={menuTitle(menu.card)}
           actions={menuActions}
           onClose={closeMenu}
