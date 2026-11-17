@@ -68,7 +68,8 @@ export function stopsOf(name: GradientName): GradientStop[] {
   return d.stops.map(([offset, opacity]) => ({offset, color: d.color, opacity}));
 }
 
-function Bands({stops, direction, style}: {stops: GradientStop[]; direction: 'toRight' | 'toBottom'; style?: StyleProp<ViewStyle>}) {
+/** Bands for stops known only at run time (a sport's accent colour). */
+export function Bands({stops, direction, style}: {stops: GradientStop[]; direction: 'toRight' | 'toBottom'; style?: StyleProp<ViewStyle>}) {
   const fills = useMemo(() => {
     const n = bandsFor(stops);
     return Array.from({length: n}, (_, i) => colorAt(stops, (i + 0.5) / n));
