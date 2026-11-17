@@ -839,7 +839,10 @@ export function PlayerScreen({
   // Held ←/→ with the overlay hidden: preview the target, seek on release.
   const held = useRef({dir: 0, count: 0, target: 0});
   useTVEventHandler(evt => {
-    if (phase.kind !== 'playing' || panel) {
+    // Back has its own handler (hardwareBackPress below). Seen here first, it
+    // brought the controls up, and that handler then only hid them again:
+    // Back never left the player.
+    if (phase.kind !== 'playing' || panel || evt.eventType === 'back') {
       return;
     }
     const isSeek = evt.eventType === 'left' || evt.eventType === 'right';
