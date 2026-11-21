@@ -163,6 +163,23 @@ export async function saveProgress(req: PlayRequest, position: number, duration:
   if (req.isLive || position < MIN_PROGRESS_SEC || duration <= 0) {
     return null;
   }
+  return writeProgress(req, position, duration);
+}
+
+/**
+ * The CW row as the title opens, at its resume point (0 for a fresh one),
+ * as pileus-player's markStarted: the row is there (and up to date) at once,
+ * not only after the first heartbeat — and a later save can't be the first
+ * write. Same return as saveProgress.
+ */
+export async function markStarted(req: PlayRequest, duration: number): Promise<string | null> {
+  if (req.isLive) {
+    return null;
+  }
+  return writeProgress(req, req.startAt, duration > 0 ? duration : 0);
+}
+
+async function writeProgress(req: PlayRequest, position: number, duration: number): Promise<string | null> {
   const r = await mycelium.updateProgress({
     pluginId: req.pluginId,
     mediaId: req.streamId,

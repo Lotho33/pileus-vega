@@ -62,7 +62,7 @@ import {
   stepEpisode,
   streamIdForNext,
 } from './episodes';
-import {classifyResolveError, fmtClock, PlayRequest, resolveWithRetry, saveProgress} from './session';
+import {classifyResolveError, fmtClock, markStarted, PlayRequest, resolveWithRetry, saveProgress} from './session';
 import {PLAYBACK_SPEEDS, playbackSpeedLabel} from './speed';
 import {getViewMode, setViewMode, surfaceBox, ViewMode, VIEW_MODES} from './viewMode';
 import {LiveFailover} from './liveFailover';
@@ -281,24 +281,28 @@ export function PlayerScreen({
   // Set below, once start() exists: moves a failing live to its next node.
   const failoverRef = useRef<() => boolean>(() => false);
 
+  // Another device took the playback over: stop here and say where.
+  const playingElsewhere = useCallback((other: string | null) => {
+    if (other && alive.current) {
+      engine.current?.pause();
+      setPhase({
+        kind: 'elsewhere',
+        message: `In riproduzione su «${other}».`,
+      });
+    }
+  }, []);
+
   const flushProgress = useCallback(async () => {
     const e = engine.current;
     if (!e || progressCleared.current || transitioning.current) {
       return;
     }
     try {
-      const other = await saveProgress(reqRef.current, e.position, e.duration);
-      if (other && alive.current) {
-        e.pause();
-        setPhase({
-          kind: 'elsewhere',
-          message: `In riproduzione su «${other}».`,
-        });
-      }
+      playingElsewhere(await saveProgress(reqRef.current, e.position, e.duration));
     } catch {
       // A missed beat is retried by the next one.
     }
-  }, []);
+  }, [playingElsewhere]);
 
   const start = useCallback(
     async (r: PlayRequest, takeOver: boolean, pre?: ResolveResponse) => {
@@ -448,6 +452,11 @@ export function PlayerScreen({
           isLive: r.isLive || resolved.isLive,
         });
         engine.current.play();
+        if (!r.isLive && !progressCleared.current) {
+          markStarted(r, engine.current.duration)
+            .then(playingElsewhere)
+            .catch(() => {});
+        }
       } catch (err) {
         if (!alive.current) {
           return;
@@ -465,7 +474,7 @@ export function PlayerScreen({
         }
       }
     },
-    [flushProgress, onExit, audioPref],
+    [flushProgress, onExit, audioPref, playingElsewhere],
   );
 
   failoverRef.current = () => {
