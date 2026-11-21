@@ -2,7 +2,7 @@
 // feed the same hero + carousel widgets, so they're normalized here
 // (the Flutter app does the same with its SDUI CardData).
 
-import {languageBadge} from '../core/language';
+import {LangBadge, languageBadges} from '../core/language';
 import {liveStartAt, liveWhenShort} from '../details/live';
 import type {CatalogDef, CatalogItem, ContinueWatchingItem, LogoMeta} from '../gen/media';
 import type {EpisodeNav} from '../player/episodes';
@@ -60,8 +60,10 @@ export interface CardModel {
   when?: string;
   /** extra.sport_cat: the live card's accent colour. */
   sport?: string;
-  /** Language pill, top-right on poster cards (extra.lang/subs). */
-  lang?: {label: string; color: string} | null;
+  /** Language pills (up to 5), stacked top-right on poster cards (extra.lang/subs). */
+  langs?: LangBadge[];
+  /** Related cards: "Sequel", "Prequel"… as a small pill top-left (related_carousel.dart). */
+  rel?: string;
   /** Film/OVA/ONA/Special/Music/Short pill, top-left on poster cards. */
   subtype?: string;
   hero: HeroItem;
@@ -154,7 +156,7 @@ export function catalogCard(pluginId: string, i: CatalogItem, variant: CardVaria
     badge: isLiveNow ? 'LIVE' : '',
     when: !isLiveNow && wide ? whenShort(e) : '',
     sport: e.sport_cat ?? '',
-    lang: variant === 'poster' ? languageBadge(e.lang, e.subs) : null,
+    langs: variant === 'poster' ? languageBadges(e.lang, e.subs) : [],
     subtype: variant === 'poster' ? subtypeLabel(e.subtype) : '',
     hero: {
       key: `${pluginId}:${i.id}`,

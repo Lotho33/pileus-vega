@@ -8,6 +8,7 @@ import {
   AudioLangPref,
   chooseSource,
   languageBadge,
+  languageBadges,
   languageNotice,
   languageOfLabel,
   matchAudioTrack,
@@ -69,6 +70,18 @@ describe('language rule', () => {
     expect(languageBadge('jap')?.label).toBe('JAP');
     expect(languageBadge('eng', 'ita')?.label).toBe('ENG · SUB ITA');
     expect(languageBadge('both')).toBeNull();
+    expect(languageBadge('chn')?.label).toBe('CHN');
+    expect(languageBadge('kor')?.label).toBe('KOR');
+  });
+
+  it('several language badges, each its own colour, at most five', () => {
+    const labels = (l: string) => languageBadges(l).map(b => b.label);
+    expect(labels('ita,jap, chn')).toEqual(['ITA', 'JAP', 'CHN']);
+    expect(labels('jap')).toEqual(['JAP']);
+    expect(labels('both')).toEqual([]);
+    expect(labels('ITA,xyz,ita')).toEqual(['ITA']);
+    expect(new Set(languageBadges('ita,jap,chn,kor,eng').map(b => b.color)).size).toBe(5);
+    expect(labels('ita,jap,chn,kor,eng,ita')).toHaveLength(5);
   });
 });
 

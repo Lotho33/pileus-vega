@@ -4,7 +4,7 @@
 // translates, so the native focus engine can always reach the next one and
 // the window follows focus (episodeWindow).
 
-import {languageBadge} from '../core/language';
+import {languageBadges} from '../core/language';
 import React, {forwardRef, memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {ActivityIndicator, Pressable, ScrollView, StyleSheet, View} from 'react-native';
 import {Text} from '../components/Text';
@@ -104,7 +104,7 @@ const EpisodeRow = memo(
       const [focused, setFocused] = useState(false);
       const n = ep.episodeNumber > 0 ? ep.episodeNumber : null;
       // This episode's own language versions, when the plugin says.
-      const badge = languageBadge(ep.extra?.lang);
+      const badges = languageBadges(ep.extra?.lang);
       const avail = Math.max(12, height - 18);
       const titleFs = Math.min(28 * s, avail * 0.52);
       const numFs = Math.min(38 * s, avail * 0.7);
@@ -147,15 +147,16 @@ const EpisodeRow = memo(
               </Text>
             ) : null}
           </View>
-          {badge ? (
+          {badges.map((badge, i) => (
             <Text
+              key={badge.label}
               style={[
                 styles.epLang,
-                {backgroundColor: badge.color, fontSize: Math.min(17 * s, avail * 0.32), marginLeft: 8 * s},
+                {backgroundColor: badge.color, fontSize: Math.min(17 * s, avail * 0.32), marginLeft: (i ? 4 : 8) * s},
               ]}>
               {badge.label}
             </Text>
-          ) : null}
+          ))}
           <Icon name="chevronRight" size={Math.min(30, titleFs * 1.3)} color={focused ? colors.textHigh : colors.textLow} />
         </Pressable>
       );

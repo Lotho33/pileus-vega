@@ -210,7 +210,7 @@ export function DetailsScreen({
           mediaId={peek.open.mediaId}
           title={peek.title}
           poster={peek.image}
-          relLabel={peek.badge ? peek.badge.charAt(0) + peek.badge.slice(1).toLowerCase() : ''}
+          relLabel={peek.rel ?? ''}
           W={L.W}
           H={L.H}
           onNavigate={() => {

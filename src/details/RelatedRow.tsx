@@ -23,7 +23,9 @@ export function relatedCards(pluginId: string, entries: RelatedEntry[]): CardMod
     overline: '',
     progress: 0,
     progressLabel: '',
-    badge: relLabel(e.rel).toUpperCase(),
+    // Not `badge`: that one is the live card's big LIVE pill.
+    badge: '',
+    rel: relLabel(e.rel),
     hero: {key: e.id, title: e.title, logo: '', year: 0, rating: 0, genres: [], plot: '', background: ''},
   }));
 }

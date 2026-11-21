@@ -38,7 +38,20 @@ export function languageOfLabel(label: string): PreferredLanguage | null {
   if (l.includes('ital') || /\bita\b/.test(l) || l.includes('doppiat')) {
     return 'it';
   }
-  const originals = ['ingl', 'engl', 'eng', 'giappon', 'japan', 'jap', 'orig', 'spagn', 'franc', 'tedes', 'corean', 'korean'];
+  const originals = [
+    'ingl',
+    'engl',
+    'eng',
+    'giappon',
+    'japan',
+    'jap',
+    'orig',
+    'spagn',
+    'franc',
+    'tedes',
+    'corean',
+    'korean',
+  ];
   return originals.some(o => l.includes(o)) ? 'original' : null;
 }
 
@@ -86,7 +99,11 @@ export function preferredFirst(
 }
 
 /** "Disponibile solo in inglese" when the preferred language isn't offered. */
-export function languageNotice(sources: StreamSource[], chosen: StreamSource | null, language: PreferredLanguage): string {
+export function languageNotice(
+  sources: StreamSource[],
+  chosen: StreamSource | null,
+  language: PreferredLanguage,
+): string {
   if (!chosen) {
     return '';
   }
@@ -97,17 +114,46 @@ export function languageNotice(sources: StreamSource[], chosen: StreamSource | n
   return `Disponibile solo in ${chosen.label.trim().toLowerCase()}`;
 }
 
+export interface LangBadge {
+  label: string;
+  color: string;
+}
+
+/** At most this many pills on one card/episode — one per language, each its own colour. */
+export const MAX_LANGUAGE_BADGES = 5;
+
 /**
- * The ITA/JAP/ENG pill for a card or an episode, from the plugin's
- * `extra.lang` (and `extra.subs`) — language_badge.dart. Null when there's
- * nothing worth flagging ('' / 'both').
+ * The ITA/JAP/CHN/KOR/ENG pills for a card or an episode, from the plugin's
+ * `extra.lang` (and `extra.subs`) — language_badge.dart's languageBadges.
+ * `lang` is one value or several separated by commas ("ita,jap,chn");
+ * unknown values and '' / 'both' are skipped, duplicates dropped, the rest
+ * kept in order up to MAX_LANGUAGE_BADGES.
  */
-export function languageBadge(lang: string | undefined, subs = ''): {label: string; color: string} | null {
+export function languageBadges(lang: string | undefined, subs = ''): LangBadge[] {
+  const out: LangBadge[] = [];
+  for (const part of (lang ?? '').split(/[,;|/\s]+/)) {
+    const b = languageBadge(part.trim().toLowerCase(), subs);
+    if (b && !out.some(o => o.label === b.label)) {
+      out.push(b);
+      if (out.length === MAX_LANGUAGE_BADGES) {
+        break;
+      }
+    }
+  }
+  return out;
+}
+
+/** One language value (see languageBadges); null when there's nothing to show. */
+export function languageBadge(lang: string | undefined, subs = ''): LangBadge | null {
   switch (lang) {
     case 'ita':
       return {label: 'ITA', color: 'rgba(56,189,248,0.9)'};
     case 'jap':
       return {label: 'JAP', color: 'rgba(249,115,22,0.9)'};
+    case 'chn':
+      return {label: 'CHN', color: 'rgba(239,68,68,0.9)'};
+    case 'kor':
+      return {label: 'KOR', color: 'rgba(34,197,94,0.9)'};
     case 'eng':
       return {label: subs === 'ita' ? 'ENG · SUB ITA' : 'ENG', color: 'rgba(167,139,250,0.9)'};
     default:

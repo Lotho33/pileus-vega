@@ -98,31 +98,44 @@ export const PosterCard = memo(
           <Placeholder title={p.card.title} />
         )}
         {p.card.badge ? <LiveBadges card={p.card} /> : null}
-        {p.card.lang ? (
-          <Text style={[styles.pill, styles.lang, {backgroundColor: p.card.lang.color}]}>{p.card.lang.label}</Text>
+        {p.card.langs?.length ? (
+          <View style={styles.langs}>
+            {p.card.langs.map(b => (
+              <Text key={b.label} style={[styles.langPill, {backgroundColor: b.color}]}>
+                {b.label}
+              </Text>
+            ))}
+          </View>
         ) : null}
-        {p.card.subtype ? <Text style={[styles.pill, styles.subtype]}>{p.card.subtype}</Text> : null}
+        {p.card.rel ? (
+          <Text style={[styles.relPill, {maxWidth: p.width - px(24)}]} numberOfLines={1} ellipsizeMode="tail">
+            {p.card.rel}
+          </Text>
+        ) : p.card.subtype ? (
+          <Text style={[styles.pill, styles.subtype]}>{p.card.subtype}</Text>
+        ) : null}
       </View>
     </Pressable>
   );
   if (!p.captionFs) {
     return poster;
   }
-  // Always two lines tall, clipped: a longer title (numberOfLines isn't
-  // always honoured) or a one-line one must not change the card's height,
-  // or the row's vertical centering shifts that card against its neighbours.
+  // Always two lines tall: a one-line title must not change the card's
+  // height, or the row's vertical centering shifts that card against its
+  // neighbours. The fixed height sits on a wrapper, not on the Text: with
+  // the height on the Text itself Vega laid all the lines out and clipped
+  // them, so a longer title lost its "…".
   return (
     <View style={{width: p.width}}>
       {poster}
-      <Text
-        style={[
-          styles.caption2,
-          {fontSize: p.captionFs, lineHeight: p.captionFs * 1.3, height: p.captionFs * 1.3 * 2},
-          focused && styles.caption2On,
-        ]}
-        numberOfLines={2}>
-        {p.card.title}
-      </Text>
+      <View style={[styles.caption2Box, {height: p.captionFs * 1.3 * 2}]}>
+        <Text
+          style={[styles.caption2, {fontSize: p.captionFs, lineHeight: p.captionFs * 1.3}, focused && styles.caption2On]}
+          numberOfLines={2}
+          ellipsizeMode="tail">
+          {p.card.title}
+        </Text>
+      </View>
     </View>
   );
   }),
@@ -270,7 +283,8 @@ const styles = scaledStyles({
   landscapeFrame: {borderRadius: 20},
   landscapeClip: {flex: 1, borderRadius: 20, overflow: 'hidden', backgroundColor: '#1A1A2A'},
   ring: {...StyleSheet.absoluteFillObject, borderRadius: 20, borderWidth: 6, borderColor: colors.primary},
-  caption2: {color: colors.textMid, marginTop: 8, fontWeight: '500', textAlign: 'center', overflow: 'hidden'},
+  caption2Box: {marginTop: 8, overflow: 'hidden'},
+  caption2: {color: colors.textMid, fontWeight: '500', textAlign: 'center'},
   caption2On: {color: colors.textHigh},
   // _PosterFallback: 12 type, 8 padding (×2).
   placeholder: {alignItems: 'center', justifyContent: 'center', padding: 16},
@@ -347,6 +361,33 @@ const styles = scaledStyles({
     fontSize: 16,
     fontWeight: '700',
   },
-  lang: {right: 16},
+  // Up to 5 language pills stacked under each other, clear of the subtype
+  // pill on the left.
+  langs: {position: 'absolute', top: 16, right: 16, alignItems: 'flex-end', gap: 6},
+  langPill: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    overflow: 'hidden',
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  // related_carousel.dart's label: 6 from the corner, padding 7/3, radius 5,
+  // type 8.6 on the 540 canvas, accent background (×2 here).
+  relPill: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: colors.primary,
+    color: colors.textHigh,
+    fontSize: 17.2,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+  },
   subtype: {left: 16, backgroundColor: 'rgba(167,139,250,0.9)'},
 });

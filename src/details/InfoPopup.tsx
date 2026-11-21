@@ -164,7 +164,9 @@ export function InfoPopup({
             </Text>
             {relLabel ? (
               <View style={[styles.chip, {marginTop: 8 * u}]}>
-                <Text style={[styles.chipText, {fontSize: fs * 0.87}]}>{relLabel}</Text>
+                <Text style={[styles.chipText, {fontSize: fs * 0.87}]} numberOfLines={1} ellipsizeMode="tail">
+                  {relLabel}
+                </Text>
               </View>
             ) : null}
             {!info && !failed ? (
