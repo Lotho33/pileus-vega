@@ -75,9 +75,25 @@ function utf8(s: string): string {
   return out;
 }
 
+/**
+ * Already a mycelium image (`/img?u=…`, or the `/img/versus` cover the sports
+ * plugins hand out) on any host — when the server wrote its URL with another
+ * base than ours. It is WebP already; wrapping it again in /img made that
+ * request hold one of the server's few conversion slots while fetching the
+ * inner one, which queued for a slot too: 10 s, then "busy", no image.
+ */
+export function isMyceliumImage(url: string): boolean {
+  const m = /^https?:\/\/[^/?#]+(\/[^?#]*)?(\?[^#]*)?/i.exec(url);
+  if (!m) {
+    return false;
+  }
+  const path = m[1] ?? '';
+  return path === '/img/versus' || (path === '/img' && /[?&]u=/.test(m[2] ?? ''));
+}
+
 /** `/img?u=<base64url, no padding>`, or null when there's no server to ask. */
 export function imgProxy(upstream: string): string | null {
-  if (!proxyBase || upstream.startsWith(proxyBase)) {
+  if (!proxyBase || upstream.startsWith(proxyBase) || isMyceliumImage(upstream)) {
     return null;
   }
   const u = base64(utf8(upstream)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');

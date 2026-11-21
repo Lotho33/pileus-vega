@@ -1,5 +1,5 @@
 import {PixelRatio} from 'react-native';
-import {backdropSrc, imgProxy, posterSrc, setImageProxyBase} from '../src/core/images';
+import {backdropSrc, imgProxy, isMyceliumImage, posterSrc, setImageProxyBase} from '../src/core/images';
 
 jest.spyOn(PixelRatio, 'get').mockReturnValue(2);
 
@@ -39,5 +39,20 @@ describe('images', () => {
   test('no server yet: the upstream URL', () => {
     setImageProxyBase('');
     expect(posterSrc('https://x.org/p.jpg', 100, true)).toBe('https://x.org/p.jpg');
+  });
+
+  test('a mycelium image under another base is left as it is', () => {
+    const versus = 'https://media.example/img/versus?h=aA&a=bB';
+    expect(imgProxy(versus)).toBeNull();
+    expect(posterSrc(versus, 150, true)).toBe(versus);
+    expect(posterSrc('http://other:8000/img?u=aHR0cA', 150, true)).toBe('http://other:8000/img?u=aHR0cA');
+  });
+
+  test('only the /img endpoints count as mycelium images', () => {
+    expect(isMyceliumImage('https://site.example/img/versus?h=a&a=b')).toBe(true);
+    expect(isMyceliumImage('https://site.example/img?u=abc')).toBe(true);
+    expect(isMyceliumImage('https://site.example/img/poster.jpg')).toBe(false);
+    expect(isMyceliumImage('https://site.example/img')).toBe(false);
+    expect(isMyceliumImage('https://site.example/x?next=/img/versus')).toBe(false);
   });
 });
