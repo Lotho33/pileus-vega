@@ -49,6 +49,8 @@ export class GrpcError extends Error {
 export interface CallOptions {
   timeoutMs?: number;
   signal?: AbortSignal;
+  /** Extra request metadata for this call only. */
+  metadata?: Record<string, string>;
 }
 
 export type MetadataProvider = () => Record<string, string>;
@@ -265,6 +267,7 @@ export class GrpcWebClient {
     const payload = reqCodec.encode(reqCodec.fromPartial(request)).finish();
     const headers: Record<string, string> = {
       ...this.metadata(),
+      ...opts.metadata,
       'content-type': 'application/grpc-web+proto',
       'x-grpc-web': '1',
       'x-user-agent': 'pileus-vega/1',

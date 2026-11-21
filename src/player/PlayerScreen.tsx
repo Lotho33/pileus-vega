@@ -31,6 +31,7 @@ import {FocusButton} from '../components/FocusButton';
 import {Gradient} from '../components/Gradient';
 import {Icon, IconName} from '../components/Icon';
 import {mycelium} from '../core/api';
+import {deleteProgress, updateProgress} from '../core/cwOffline';
 import {focusSoon} from '../core/focus';
 import * as perf from '../core/perf';
 import {AudioLangPref, languageNotice, parsePreferredLanguage, sourceMemory} from '../core/language';
@@ -66,6 +67,7 @@ import {classifyResolveError, fmtClock, markStarted, PlayRequest, resolveWithRet
 import {PLAYBACK_SPEEDS, playbackSpeedLabel} from './speed';
 import {getViewMode, setViewMode, surfaceBox, ViewMode, VIEW_MODES} from './viewMode';
 import {LiveFailover} from './liveFailover';
+import {advanceContinueWatching, isEpisodeOfSeries} from './cwAdvance';
 
 const HIDE_AFTER_MS = 5000;
 const HEARTBEAT_MS = 10000;
@@ -635,9 +637,10 @@ export function PlayerScreen({
   }, [phase.kind, paused, flushProgress]);
 
   // End of an episode: Continue Watching rolls forward to the next episode
-  // of this season at 90% (so the series stays in the row, "up next"), or
-  // the entry goes at 95% when nothing follows (a movie, the last episode).
-  // At a season boundary the entry stays as is.
+  // of this season at 90% (so the series stays in the row, "up next"). At
+  // 95% with nothing more in this season, an episode moves the row to the
+  // next season's first episode, or removes it when the series is over
+  // (cwAdvance); a movie's row goes. Offline, all of it is queued.
   useEffect(() => {
     if (
       req.isLive ||
@@ -657,7 +660,7 @@ export function PlayerScreen({
       const nav = r.nav!;
       streamIdForNext(r.pluginId, next, r.sourceLabel)
         .then(mediaId =>
-          mycelium.updateProgress({
+          updateProgress({
             pluginId: r.pluginId,
             mediaId,
             parentId: r.parentId,
@@ -676,10 +679,30 @@ export function PlayerScreen({
           }),
         )
         .catch(() => {})
-        .finally(() => mycelium.deleteProgress(r.pluginId, r.streamId).catch(() => {}));
-    } else if (!hasNextEpisode(req.nav) && frac >= CW_DROP) {
+        .finally(() => deleteProgress(r.pluginId, r.streamId));
+    } else if (!next && frac >= CW_DROP) {
       progressCleared.current = true;
-      mycelium.deleteProgress(req.pluginId, req.streamId).catch(() => {});
+      if (isEpisodeOfSeries(req.parentId, req.streamId)) {
+        advanceContinueWatching({
+          pluginId: req.pluginId,
+          seriesId: req.parentId,
+          currentCwId: req.streamId,
+          currentTitle: req.title,
+          seasonNumber: req.seasonNumber,
+          episodeNumber: req.episodeNumber,
+          knownSeasonIds: req.nav?.seasonIds ?? [],
+          sourceLabel: req.sourceLabel,
+          showTitle: req.showTitle,
+          seriesPoster: req.nav?.seriesPoster ?? '',
+          fallbackPoster: req.poster,
+          rating: req.rating,
+          genres: req.genres,
+          plot: req.plot,
+          year: req.year,
+        }).catch(() => {});
+      } else {
+        deleteProgress(req.pluginId, req.streamId);
+      }
     }
   }, [position, duration, phase.kind, req]);
 

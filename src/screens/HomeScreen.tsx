@@ -16,6 +16,7 @@ import {ContextMenu, MenuAction} from '../components/ContextMenu';
 import {FocusButton} from '../components/FocusButton';
 import {MediaInfoPopup} from '../details/MediaInfoPopup';
 import {mycelium} from '../core/api';
+import {fetchContinueWatching} from '../core/cwOffline';
 import {canSave, myList, myListItemFrom, myListMessage, useMyList} from '../core/myList';
 import {applyCatalogPrefs, applyPluginPrefs, isPluginReady, parsePluginPrefs} from '../core/prefs';
 import type {CatalogDef, ContinueWatchingItem, PluginInfo} from '../gen/media';
@@ -68,6 +69,10 @@ export function HomeScreen() {
   const keplerBack = useKeplerBackHandler();
   const [plugins, setPlugins] = useState<PluginInfo[] | null>(null);
   const [cw, setCw] = useState<ContinueWatchingItem[]>([]);
+  // The row on screen: what an unreachable server leaves up, with what was
+  // watched offline laid over it (cwOffline.fetchContinueWatching).
+  const cwRef = useRef(cw);
+  cwRef.current = cw;
   const [error, setError] = useState('');
   const [selected, setSelected] = useState(0);
   const [navOpen, setNavOpen] = useState(false);
@@ -105,10 +110,7 @@ export function HomeScreen() {
     setError('');
     setPlugins(null);
     try {
-      const [list, items] = await Promise.all([
-        mycelium.listPlugins(),
-        mycelium.getContinueWatching(0).catch(() => [] as ContinueWatchingItem[]),
-      ]);
+      const [list, items] = await Promise.all([mycelium.listPlugins(), fetchContinueWatching(cwRef.current)]);
       setPlugins(applyPluginPrefs(list, prefs));
       prefetchPluginIcons(list.map(p => p.pluginId));
       setCw(items);
@@ -164,8 +166,7 @@ export function HomeScreen() {
   }, []);
 
   const refreshCw = useCallback(() => {
-    mycelium
-      .getContinueWatching(0)
+    fetchContinueWatching(cwRef.current)
       .then(setCw)
       .catch(() => {});
   }, []);
@@ -229,35 +230,32 @@ export function HomeScreen() {
   }, []);
 
   // "Riproduci" from the card menu: the first source, like _fetchAndPlay.
-  const playFirstSource = useCallback(
-    async (card: CardModel) => {
-      const o = card.open;
-      try {
-        const sources = await mycelium.getStreams(o.pluginId, o.mediaId);
-        if (!sources.length) {
-          setToast('Nessuna sorgente disponibile.');
-          return;
-        }
-        const it = o.item;
-        setPlayer(
-          emptyRequest({
-            pluginId: o.pluginId,
-            streamId: sources[0].id,
-            sourceLabel: sources[0].label,
-            title: o.title,
-            poster: it?.extra?.cover_url || it?.extra?.fanart_url || it?.posterUrl || '',
-            plot: it?.extra?.plot ?? '',
-            rating: it?.rating ?? 0,
-            year: it?.year ?? 0,
-            sources,
-          }),
-        );
-      } catch (e) {
-        setToast(`Impossibile avviare la riproduzione: ${errorText(e)}`);
+  const playFirstSource = useCallback(async (card: CardModel) => {
+    const o = card.open;
+    try {
+      const sources = await mycelium.getStreams(o.pluginId, o.mediaId);
+      if (!sources.length) {
+        setToast('Nessuna sorgente disponibile.');
+        return;
       }
-    },
-    [],
-  );
+      const it = o.item;
+      setPlayer(
+        emptyRequest({
+          pluginId: o.pluginId,
+          streamId: sources[0].id,
+          sourceLabel: sources[0].label,
+          title: o.title,
+          poster: it?.extra?.cover_url || it?.extra?.fanart_url || it?.posterUrl || '',
+          plot: it?.extra?.plot ?? '',
+          rating: it?.rating ?? 0,
+          year: it?.year ?? 0,
+          sources,
+        }),
+      );
+    } catch (e) {
+      setToast(`Impossibile avviare la riproduzione: ${errorText(e)}`);
+    }
+  }, []);
 
   // Long-press menu (_CardContextMenu / _CwContextMenu in pileus-player).
   const menuActions = useMemo((): MenuAction[] => {
@@ -416,7 +414,23 @@ export function HomeScreen() {
       return true;
     });
     return () => sub.remove();
-  }, [settingsOpen, fullSearch, myListOpen, stack.length, player, live, menu, info, searchOpen, canCloseNav, pageEmpty, ready, closeNav, closeSearch, keplerBack]);
+  }, [
+    settingsOpen,
+    fullSearch,
+    myListOpen,
+    stack.length,
+    player,
+    live,
+    menu,
+    info,
+    searchOpen,
+    canCloseNav,
+    pageEmpty,
+    ready,
+    closeNav,
+    closeSearch,
+    keplerBack,
+  ]);
 
   useEffect(() => {
     if (!toast) {

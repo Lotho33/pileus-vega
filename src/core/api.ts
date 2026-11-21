@@ -79,10 +79,7 @@ export class Mycelium {
       }
       const info = (await r.json()) as ServerInfo;
       if (info?.name !== 'Mycelium') {
-        throw new GrpcError(
-          GrpcStatus.FAILED_PRECONDITION,
-          'Il server risponde ma non è un Mycelium',
-        );
+        throw new GrpcError(GrpcStatus.FAILED_PRECONDITION, 'Il server risponde ma non è un Mycelium');
       }
       return info;
     } catch (e) {
@@ -99,50 +96,27 @@ export class Mycelium {
 
   authorizeDevice(deviceId: string, pairingCode: string) {
     // pin_hash carries the raw pairing code — the server compares it as-is.
-    return this.rpc.unary(
-      A + 'AuthorizeDevice',
-      auth.AuthorizeDeviceRequest,
-      auth.AuthorizeDeviceResponse,
-      {deviceId, pinHash: pairingCode},
-    );
+    return this.rpc.unary(A + 'AuthorizeDevice', auth.AuthorizeDeviceRequest, auth.AuthorizeDeviceResponse, {
+      deviceId,
+      pinHash: pairingCode,
+    });
   }
 
   refreshToken() {
-    return this.rpc.unary(
-      A + 'RefreshToken',
-      auth.RefreshTokenRequest,
-      auth.AuthorizeDeviceResponse,
-      {},
-    );
+    return this.rpc.unary(A + 'RefreshToken', auth.RefreshTokenRequest, auth.AuthorizeDeviceResponse, {});
   }
 
   unpairSelf() {
-    return this.rpc.unary(
-      A + 'UnpairSelf',
-      auth.UnpairSelfRequest,
-      auth.UnpairSelfResponse,
-      {},
-      {timeoutMs: 5000},
-    );
+    return this.rpc.unary(A + 'UnpairSelf', auth.UnpairSelfRequest, auth.UnpairSelfResponse, {}, {timeoutMs: 5000});
   }
 
   async listProfiles() {
-    const r = await this.rpc.unary(
-      A + 'ListProfiles',
-      auth.ListProfilesRequest,
-      auth.ListProfilesResponse,
-      {},
-    );
+    const r = await this.rpc.unary(A + 'ListProfiles', auth.ListProfilesRequest, auth.ListProfilesResponse, {});
     return r.profiles;
   }
 
   createProfile(name: string, avatarUrl = '') {
-    return this.rpc.unary(
-      A + 'CreateProfile',
-      auth.CreateProfileRequest,
-      auth.ProfileResponse,
-      {name, avatarUrl},
-    );
+    return this.rpc.unary(A + 'CreateProfile', auth.CreateProfileRequest, auth.ProfileResponse, {name, avatarUrl});
   }
 
   updateProfile(profileId: string, name: string, avatarUrl: string) {
@@ -234,12 +208,11 @@ export class Mycelium {
   }
 
   async unlockProfile(profileId: string, pin: string, rememberDevice: boolean) {
-    const r = await this.rpc.unary(
-      A + 'UnlockProfile',
-      auth.UnlockProfileRequest,
-      auth.UnlockProfileResponse,
-      {profileId, pin, rememberDevice},
-    );
+    const r = await this.rpc.unary(A + 'UnlockProfile', auth.UnlockProfileRequest, auth.UnlockProfileResponse, {
+      profileId,
+      pin,
+      rememberDevice,
+    });
     if (r.sessionToken && profileId === this.creds.profileId) {
       this.creds.profileSession = r.sessionToken;
     }
@@ -249,22 +222,12 @@ export class Mycelium {
   // ── MediaPipeline ────────────────────────────────────────────────────────
 
   async listPlugins() {
-    const r = await this.rpc.unary(
-      M + 'ListPlugins',
-      media.PluginListRequest,
-      media.PluginListResponse,
-      {},
-    );
+    const r = await this.rpc.unary(M + 'ListPlugins', media.PluginListRequest, media.PluginListResponse, {});
     return r.plugins;
   }
 
   getCatalog(pluginId: string, catalogId: string, page = 1) {
-    return this.rpc.unary(
-      M + 'GetCatalog',
-      media.CatalogRequest,
-      media.CatalogResponse,
-      {pluginId, catalogId, page},
-    );
+    return this.rpc.unary(M + 'GetCatalog', media.CatalogRequest, media.CatalogResponse, {pluginId, catalogId, page});
   }
 
   async getContinueWatching(limit = 0) {
@@ -278,62 +241,31 @@ export class Mycelium {
   }
 
   async getSearchFilters(pluginId: string) {
-    const r = await this.rpc.unary(
-      M + 'GetSearchFilters',
-      media.SearchFiltersRequest,
-      media.SearchFiltersResponse,
-      {pluginId},
-    );
+    const r = await this.rpc.unary(M + 'GetSearchFilters', media.SearchFiltersRequest, media.SearchFiltersResponse, {
+      pluginId,
+    });
     return r.filters;
   }
 
-  search(
-    pluginId: string,
-    query: string,
-    page = 1,
-    filters: Record<string, string> = {},
-  ) {
-    return this.rpc.unary(
-      M + 'Search',
-      media.SearchRequest,
-      media.SearchResponse,
-      {pluginId, query, page, filters},
-    );
+  search(pluginId: string, query: string, page = 1, filters: Record<string, string> = {}) {
+    return this.rpc.unary(M + 'Search', media.SearchRequest, media.SearchResponse, {pluginId, query, page, filters});
   }
 
   getDetails(pluginId: string, mediaId: string) {
-    return this.rpc.unary(
-      M + 'GetDetails',
-      media.DetailsRequest,
-      media.DetailsResponse,
-      {pluginId, mediaId},
-    );
+    return this.rpc.unary(M + 'GetDetails', media.DetailsRequest, media.DetailsResponse, {pluginId, mediaId});
   }
 
   browse(pluginId: string, parentId: string, childId = '', page = 1) {
-    return this.rpc.unary(
-      M + 'Browse',
-      media.BrowseRequest,
-      media.BrowseResponse,
-      {pluginId, parentId, childId, page},
-    );
+    return this.rpc.unary(M + 'Browse', media.BrowseRequest, media.BrowseResponse, {pluginId, parentId, childId, page});
   }
 
   async getStreams(pluginId: string, mediaId: string) {
-    const r = await this.rpc.unary(
-      M + 'GetStreams',
-      media.StreamsRequest,
-      media.StreamsResponse,
-      {pluginId, mediaId},
-    );
+    const r = await this.rpc.unary(M + 'GetStreams', media.StreamsRequest, media.StreamsResponse, {pluginId, mediaId});
     return r.sources;
   }
 
   /** ResolveStream, waiting for the final result event. */
-  async resolveStream(
-    req: Partial<media.ResolveRequest>,
-    opts: CallOptions = {},
-  ): Promise<media.ResolveResponse> {
+  async resolveStream(req: Partial<media.ResolveRequest>, opts: CallOptions = {}): Promise<media.ResolveResponse> {
     const events = await this.rpc.serverStream(
       M + 'ResolveStream',
       media.ResolveRequest,
@@ -344,22 +276,21 @@ export class Mycelium {
     const result = events.find(e => e.result)?.result;
     if (!result) {
       const last = events.filter(e => e.progress).pop()?.progress;
-      throw new GrpcError(
-        GrpcStatus.UNKNOWN,
-        last?.message || 'Nessuno stream risolto',
-      );
+      throw new GrpcError(GrpcStatus.UNKNOWN, last?.message || 'Nessuno stream risolto');
     }
     return result;
   }
 
-  updateProgress(req: Partial<media.ProgressRequest>) {
-    return this.rpc.unary(
-      M + 'UpdateProgress',
-      media.ProgressRequest,
-      media.ProgressResponse,
-      req,
-      {timeoutMs: 8000},
-    );
+  /**
+   * `replay`: progress saved while the server was unreachable, sent now —
+   * stored without claiming the profile's playback lease (nothing is
+   * playing; claiming would refuse another device for 90 s).
+   */
+  updateProgress(req: Partial<media.ProgressRequest>, replay = false) {
+    return this.rpc.unary(M + 'UpdateProgress', media.ProgressRequest, media.ProgressResponse, req, {
+      timeoutMs: 8000,
+      metadata: replay ? {'x-progress-replay': '1'} : undefined,
+    });
   }
 
   deleteProgress(pluginId: string, mediaId: string) {

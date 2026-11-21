@@ -2,6 +2,7 @@
 // (playback_bloc.dart) and Continue Watching progress (UpdateProgress).
 
 import {mycelium} from '../core/api';
+import {updateProgress} from '../core/cwOffline';
 import {GrpcError, GrpcStatus} from '../core/grpcWeb';
 import type {ContinueWatchingItem, ResolveResponse, StreamSource} from '../gen/media';
 import type {EpisodeNav} from './episodes';
@@ -179,8 +180,9 @@ export async function markStarted(req: PlayRequest, duration: number): Promise<s
   return writeProgress(req, req.startAt, duration > 0 ? duration : 0);
 }
 
+// Queued for later when the server can't be reached (core/cwOffline).
 async function writeProgress(req: PlayRequest, position: number, duration: number): Promise<string | null> {
-  const r = await mycelium.updateProgress({
+  const r = await updateProgress({
     pluginId: req.pluginId,
     mediaId: req.streamId,
     parentId: req.parentId,
@@ -196,7 +198,7 @@ async function writeProgress(req: PlayRequest, position: number, duration: numbe
     seasonNumber: req.seasonNumber,
     episodeNumber: req.episodeNumber,
   });
-  return r.playbackElsewhere ? r.playingOn || 'un altro dispositivo' : null;
+  return r?.playbackElsewhere ? r.playingOn || 'un altro dispositivo' : null;
 }
 
 export function fmtClock(secs: number): string {
