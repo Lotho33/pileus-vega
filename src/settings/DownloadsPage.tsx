@@ -1,6 +1,7 @@
 // Impostazioni › Download (tv_downloads_screen.dart): the profile's
 // server-side downloads. On a TV a finished one plays straight from the
-// server (its signed file_url); nothing is copied to the device.
+// server (its signed file_url); nothing is copied to the device. A series
+// is one row that opens on its downloaded episodes; Back closes it first.
 
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {ActivityIndicator, View} from 'react-native';
@@ -10,6 +11,7 @@ import {FocusButton} from '../components/FocusButton';
 import {mycelium} from '../core/api';
 import {focusSoon} from '../core/focus';
 import {downloadSubtitle, formatBytes, isCancellable} from '../downloads/format';
+import {episodeRowLabel, groupDownloads, groupInProgress, groupTotalBytes} from '../downloads/groups';
 import type {DownloadInfo, ListDownloadsResponse} from '../gen/media';
 import {emptyRequest, PlayRequest} from '../player/session';
 import {errorText} from '../state/auth';
@@ -50,7 +52,9 @@ function ActionDialog({
         <Text style={styles.message}>{downloadSubtitle(info)}</Text>
         <View style={styles.actions}>
           {onWatch ? <FocusButton ref={first} label="Guarda" primary onPress={onWatch} /> : null}
-          {onCancel ? <FocusButton ref={onWatch ? undefined : first} label="Annulla download" onPress={onCancel} /> : null}
+          {onCancel ? (
+            <FocusButton ref={onWatch ? undefined : first} label="Annulla download" onPress={onCancel} />
+          ) : null}
           {onDelete ? (
             <FocusButton ref={onWatch || onCancel ? undefined : first} label="Elimina" onPress={onDelete} />
           ) : null}
@@ -67,6 +71,11 @@ export function DownloadsPage({onPlay, focusToken}: {onPlay: (req: PlayRequest) 
   const [error, setError] = useState('');
   const [open, setOpen] = useState<DownloadInfo | null>(null);
   const [refocus, setRefocus] = useState(0);
+  // The series whose episodes are shown (its group key), null = the list.
+  const [series, setSeries] = useState<string | null>(null);
+  // The series just closed: focus lands back on its row, not the first one.
+  const [closed, setClosed] = useState<string | null>(null);
+  const keplerBack = useKeplerBackHandler();
 
   const load = useCallback(async () => {
     try {
@@ -106,6 +115,24 @@ export function DownloadsPage({onPlay, focusToken}: {onPlay: (req: PlayRequest) 
   };
 
   const list = data?.downloads ?? [];
+  const groups = groupDownloads(list);
+  // Gone when its last episode was deleted: back to the list.
+  const openSeries = series ? groups.find(g => g.key === series) ?? null : null;
+
+  // Newer than the settings stack's listener: Back closes the series first.
+  useEffect(() => {
+    if (!openSeries) {
+      return;
+    }
+    const key = openSeries.key;
+    const sub = keplerBack.addEventListener('hardwareBackPress', () => {
+      setSeries(null);
+      setClosed(key);
+      setRefocus(t => t + 1);
+      return true;
+    });
+    return () => sub.remove();
+  }, [keplerBack, openSeries]);
   const watch = (d: DownloadInfo) => {
     setOpen(null);
     onPlay(
@@ -125,23 +152,66 @@ export function DownloadsPage({onPlay, focusToken}: {onPlay: (req: PlayRequest) 
 
   return (
     <>
-      <Page title="Download" first={first} focusToken={focusToken + refocus + (data ? 1 : 0)}>
+      <Page title={openSeries?.title ?? 'Download'} first={first} focusToken={focusToken + refocus + (data ? 1 : 0)}>
         {!data && !error ? <ActivityIndicator color={colors.primary} style={styles.spinner} /> : null}
         {error ? <Note text={`Impossibile caricare i download: ${error}`} /> : null}
         {data && !list.length ? (
           <Note text="Nessun download. I contenuti scaricati sul server compariranno qui." />
         ) : null}
-        {list.length ? <SectionHeader title="Sul server" /> : null}
-        {list.map((d, i) => (
-          <Row
-            key={d.downloadId}
-            ref={i === 0 ? first : undefined}
-            icon={d.status === 'completed' ? 'play' : 'arrowDown'}
-            label={d.seriesTitle ? `${d.seriesTitle} · ${d.title}` : d.title}
-            subtitle={downloadSubtitle(d)}
-            onPress={() => setOpen(d)}
-          />
-        ))}
+        {openSeries ? (
+          openSeries.items.map((d, i) => (
+            <Row
+              key={d.downloadId}
+              ref={i === 0 ? first : undefined}
+              icon={d.status === 'completed' ? 'play' : 'arrowDown'}
+              label={episodeRowLabel(d)}
+              subtitle={downloadSubtitle(d)}
+              onPress={() => setOpen(d)}
+            />
+          ))
+        ) : (
+          <>
+            {list.length ? <SectionHeader title="Sul server" /> : null}
+            {groups.map((g, i) => {
+              const lands = closed && groups.some(x => x.key === closed) ? g.key === closed : i === 0;
+              if (!g.isSeries) {
+                const d = g.items[0];
+                return (
+                  <Row
+                    key={g.key}
+                    ref={lands ? first : undefined}
+                    icon={d.status === 'completed' ? 'play' : 'arrowDown'}
+                    label={d.title}
+                    subtitle={downloadSubtitle(d)}
+                    onPress={() => setOpen(d)}
+                  />
+                );
+              }
+              const bytes = groupTotalBytes(g);
+              const sub = [
+                `${g.items.length} ${g.items.length === 1 ? 'episodio' : 'episodi'}`,
+                bytes > 0 ? formatBytes(bytes) : '',
+                groupInProgress(g) ? 'in preparazione' : '',
+              ]
+                .filter(Boolean)
+                .join(' · ');
+              return (
+                <Row
+                  key={g.key}
+                  ref={lands ? first : undefined}
+                  icon="folder"
+                  label={g.title}
+                  subtitle={sub}
+                  nav
+                  onPress={() => {
+                    setSeries(g.key);
+                    setRefocus(t => t + 1);
+                  }}
+                />
+              );
+            })}
+          </>
+        )}
         {data && data.quotaBytes > 0 ? (
           <Note text={`Spazio usato ${formatBytes(data.usedBytes)} di ${formatBytes(data.quotaBytes)}`} />
         ) : data && data.serverFreeBytes > 0 ? (
@@ -163,7 +233,16 @@ export function DownloadsPage({onPlay, focusToken}: {onPlay: (req: PlayRequest) 
 
 const styles = scaledStyles({
   spinner: {marginTop: 40},
-  scrim: {position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center'},
+  scrim: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   card: {
     width: 900,
     padding: space.l,

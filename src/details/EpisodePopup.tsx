@@ -50,7 +50,12 @@ export function EpisodePopup({
   W: number;
   H: number;
   cw: ContinueWatchingItem[];
-  onPlay: (streamId: string, sourceLabel: string, startAt: number, sources: ReturnType<typeof useSources>['sources']) => void;
+  onPlay: (
+    streamId: string,
+    sourceLabel: string,
+    startAt: number,
+    sources: ReturnType<typeof useSources>['sources'],
+  ) => void;
   onClose: () => void;
   /** Set when the plugin supports downloads: opens the options for these sources. */
   onDownload?: (sources: ReturnType<typeof useSources>['sources']) => void;
@@ -120,7 +125,10 @@ export function EpisodePopup({
             <Gradient name="stillFade" direction="toBottom" />
             {episode.title ? (
               <Text
-                style={[styles.stillTitle, {fontSize: 28 * s, lineHeight: 28 * s * 1.2, left: 24 * u, right: 60 * u, bottom: 18 * u}]}
+                style={[
+                  styles.stillTitle,
+                  {fontSize: 28 * s, lineHeight: 28 * s * 1.2, left: 24 * u, right: 60 * u, bottom: 18 * u},
+                ]}
                 numberOfLines={2}>
                 {episode.title}
               </Text>
@@ -144,13 +152,13 @@ export function EpisodePopup({
             ) : null}
             {directors.length ? (
               <Text style={[styles.credit, {fontSize: 14 * s, marginTop: 14 * s}]}>
-                <Text style={styles.creditKey}>Regia  </Text>
+                <Text style={styles.creditKey}>Regia </Text>
                 {directors.join(', ')}
               </Text>
             ) : null}
             {guests.length ? (
               <Text style={[styles.credit, {fontSize: 14 * s, marginTop: 6 * s}]}>
-                <Text style={styles.creditKey}>Guest  </Text>
+                <Text style={styles.creditKey}>Guest </Text>
                 {guests.slice(0, 6).join(', ')}
               </Text>
             ) : null}
@@ -164,7 +172,16 @@ export function EpisodePopup({
                 onPlay={src =>
                   onPlay(src.id, src.label, resume?.mediaId === src.id ? resume.progressTime : 0, sources.sources)
                 }
-                trailing={onDownload ? <DownloadChip s={s} onPress={() => onDownload(sources.sources)} /> : undefined}
+                trailing={
+                  onDownload ? (
+                    <DownloadChip
+                      s={s}
+                      pluginId={ctx.pluginId}
+                      mediaId={episode.id}
+                      onPress={() => onDownload(sources.sources)}
+                    />
+                  ) : undefined
+                }
               />
             </View>
           </View>

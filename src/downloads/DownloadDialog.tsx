@@ -11,6 +11,7 @@ import {ActivityIndicator, ScrollView, View} from 'react-native';
 import {Text} from '../components/Text';
 import {TVFocusGuideView, useKeplerBackHandler} from '@amazon-devices/react-native-kepler';
 import {FocusButton} from '../components/FocusButton';
+import {downloadedIndex} from './downloadedIndex';
 import {mycelium} from '../core/api';
 import {focusSoon} from '../core/focus';
 import type {DownloadOptionsResponse, StreamSource} from '../gen/media';
@@ -27,7 +28,6 @@ import {
   retentionLabel,
   totalEstimatedBytes,
 } from './format';
-
 
 export function DownloadDialog({
   pluginId,
@@ -125,7 +125,11 @@ export function DownloadDialog({
         opts.pluginNote,
         opts.pluginNotice,
         qualityBelowUsualWarning(opts.qualityBelowUsual, opts.usualMaxHeight, opts.variants[0]?.height ?? 0),
-        total > 0 ? `Circa ${formatBytes(total)}${formatEta(total, opts.bytesPerSec) ? `, ${formatEta(total, opts.bytesPerSec)} di preparazione` : ''}` : '',
+        total > 0
+          ? `Circa ${formatBytes(total)}${
+              formatEta(total, opts.bytesPerSec) ? `, ${formatEta(total, opts.bytesPerSec)} di preparazione` : ''
+            }`
+          : '',
         opts.serverFreeBytes > 0 ? `Spazio libero sul server: ${formatBytes(opts.serverFreeBytes)}` : '',
         retentionLabel(opts.retentionDays),
       ].filter(Boolean)
@@ -139,10 +143,16 @@ export function DownloadDialog({
     try {
       if (group) {
         const n = await startBatch(group);
+        downloadedIndex.markRequested(
+          pluginId,
+          group.episodes.map(e => e.mediaId),
+        );
         onClose(
           n === 0
             ? 'Nessun episodio con una sorgente disponibile.'
-            : `${n} download ${preferred ? `programmati (${opts.preferredHours})` : 'avviati'}: li trovi in Impostazioni › Download.`,
+            : `${n} download ${
+                preferred ? `programmati (${opts.preferredHours})` : 'avviati'
+              }: li trovi in Impostazioni › Download.`,
         );
         return;
       }
@@ -156,7 +166,12 @@ export function DownloadDialog({
         upgradeIfBetter: opts.qualityBelowUsual && upgrade,
         ...meta,
       });
-      onClose(preferred ? `Download programmato (${opts.preferredHours}).` : 'Download avviato: lo trovi in Impostazioni › Download.');
+      downloadedIndex.markRequested(pluginId, [meta.mediaId]);
+      onClose(
+        preferred
+          ? `Download programmato (${opts.preferredHours}).`
+          : 'Download avviato: lo trovi in Impostazioni › Download.',
+      );
     } catch (e) {
       setError(errorText(e));
       setBusy(false);
@@ -214,7 +229,9 @@ export function DownloadDialog({
           ) : null}
           {!opts && !error ? <ActivityIndicator color={colors.primary} style={styles.spinner} /> : null}
           {error ? <Note text={error} /> : null}
-          {opts && !opts.available ? <Note text={opts.unavailableReason || 'Questo contenuto non si può scaricare.'} /> : null}
+          {opts && !opts.available ? (
+            <Note text={opts.unavailableReason || 'Questo contenuto non si può scaricare.'} />
+          ) : null}
           {opts?.available ? (
             <>
               {opts.variants.length ? (
@@ -277,7 +294,12 @@ export function DownloadDialog({
         <View style={styles.actions}>
           <FocusButton ref={cancelRef} label="Annulla" onPress={() => onClose()} />
           {opts?.available ? (
-            <FocusButton label={group ? `Scarica ${group.episodes.length}` : 'Scarica'} primary busy={busy} onPress={start} />
+            <FocusButton
+              label={group ? `Scarica ${group.episodes.length}` : 'Scarica'}
+              primary
+              busy={busy}
+              onPress={start}
+            />
           ) : null}
         </View>
       </TVFocusGuideView>
@@ -286,7 +308,16 @@ export function DownloadDialog({
 }
 
 const styles = scaledStyles({
-  scrim: {position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center'},
+  scrim: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   card: {
     width: 1100,
     maxHeight: 980,

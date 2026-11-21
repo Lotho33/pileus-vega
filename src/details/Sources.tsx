@@ -9,6 +9,7 @@ import {Icon, IconName} from '../components/Icon';
 import {mycelium} from '../core/api';
 import {focusSoon} from '../core/focus';
 import {useWarm} from '../core/warm';
+import {useDownloaded} from '../downloads/downloadedIndex';
 import type {StreamSource} from '../gen/media';
 import {preferredFirst, parsePreferredLanguage} from '../core/language';
 import {errorText, useAuth} from '../state/auth';
@@ -83,11 +84,7 @@ export const PlayButton = forwardRef<
           ? [styles.popupBtn, primary && styles.popupPrimary, focused && styles.popupFocused]
           : [styles.bigBtn, focused && styles.bigFocused],
       ]}>
-      <Icon
-        name={icon}
-        size={px(compact ? 20 : 24)}
-        color={compact && !lit ? colors.textMid : colors.textHigh}
-      />
+      <Icon name={icon} size={px(compact ? 20 : 24)} color={compact && !lit ? colors.textMid : colors.textHigh} />
       <Text
         style={[
           compact ? styles.popupText : styles.bigText,
@@ -106,29 +103,39 @@ export const PlayButton = forwardRef<
  * (details_actions.dart detailsSecondaryChip). The ref lets a closing dialog
  * put focus back.
  */
-export const ActionChip = forwardRef<
-  View,
-  {s: number; icon: IconName; label: string; onPress: () => void}
->(function ActionChip({icon, label, onPress}, ref) {
-  const [focused, setFocused] = useState(false);
-  const color = focused ? colors.textHigh : colors.textMid;
-  return (
-    <Pressable
-      ref={ref}
-      accessibilityLabel={label}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-      onPress={onPress}
-      style={[styles.chip, focused && styles.chipFocused]}>
-      <Icon name={icon} size={px(14)} color={color} />
-      <Text style={[styles.chipText, {color}]}>{label}</Text>
-    </Pressable>
-  );
-});
+export const ActionChip = forwardRef<View, {s: number; icon: IconName; label: string; onPress: () => void}>(
+  function ActionChip({icon, label, onPress}, ref) {
+    const [focused, setFocused] = useState(false);
+    const color = focused ? colors.textHigh : colors.textMid;
+    return (
+      <Pressable
+        ref={ref}
+        accessibilityLabel={label}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        onPress={onPress}
+        style={[styles.chip, focused && styles.chipFocused]}>
+        <Icon name={icon} size={px(14)} color={color} />
+        <Text style={[styles.chipText, {color}]}>{label}</Text>
+      </Pressable>
+    );
+  },
+);
 
-export const DownloadChip = forwardRef<View, {s: number; onPress: () => void}>(function DownloadChip({s, onPress}, ref) {
-  return <ActionChip ref={ref} s={s} icon="arrowDown" label="Scarica" onPress={onPress} />;
-});
+/**
+ * "Scarica", or "Scaricato" for a title already downloaded or on its way
+ * (still focusable, not offered again — watch_button.dart's _DownloadChip).
+ */
+export const DownloadChip = forwardRef<View, {s: number; pluginId: string; mediaId: string; onPress: () => void}>(
+  function DownloadChip({s, pluginId, mediaId, onPress}, ref) {
+    const done = useDownloaded(pluginId, mediaId);
+    return done ? (
+      <ActionChip ref={ref} s={s} icon="check" label="Scaricato" onPress={() => {}} />
+    ) : (
+      <ActionChip ref={ref} s={s} icon="arrowDown" label="Scarica" onPress={onPress} />
+    );
+  },
+);
 
 /**
  * The buttons for `state`. `focus` moves focus to the first one once they

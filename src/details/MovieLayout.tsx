@@ -86,7 +86,10 @@ export function MovieLayout({
     ? sd.genres
     : d?.genres?.length
     ? d.genres
-    : (item.extra?.genres ?? '').split(',').map(g => g.trim()).filter(Boolean);
+    : (item.extra?.genres ?? '')
+        .split(',')
+        .map(g => g.trim())
+        .filter(Boolean);
   // AnimeMetaRow: studio, episodes, runtime, status.
   const animeInfo = anime
     ? [
@@ -161,7 +164,13 @@ export function MovieLayout({
             </Text>
           ) : null}
           <View style={{marginTop: 8 * s}}>
-            <MetaRow rating={item.rating} year={item.year || d?.year || 0} runtime={d?.runtime} contentRating={d?.contentRating} s={s} />
+            <MetaRow
+              rating={item.rating}
+              year={item.year || d?.year || 0}
+              runtime={d?.runtime}
+              contentRating={d?.contentRating}
+              s={s}
+            />
           </View>
           <View style={{marginTop: 10 * s}}>
             <GenreChips genres={genres} s={s} />
@@ -176,17 +185,39 @@ export function MovieLayout({
                 resume
                   ? () => {
                       const src = sources.sources.find(x => x.id === resume.mediaId);
-                      onPlay({...base, streamId: resume.mediaId, sourceLabel: src?.label ?? '', startAt: resume.progressTime});
+                      onPlay({
+                        ...base,
+                        streamId: resume.mediaId,
+                        sourceLabel: src?.label ?? '',
+                        startAt: resume.progressTime,
+                      });
                     }
                   : undefined
               }
               resumeStreamId={resume?.mediaId}
               onPlay={src => onPlay({...base, streamId: src.id, sourceLabel: src.label})}
-              trailing={canDownload ? <DownloadChip ref={chipRef} s={s} onPress={() => setDownload(true)} /> : undefined}
+              trailing={
+                canDownload ? (
+                  <DownloadChip
+                    ref={chipRef}
+                    s={s}
+                    pluginId={pluginId}
+                    mediaId={item.id}
+                    onPress={() => setDownload(true)}
+                  />
+                ) : undefined
+              }
               actions={
                 <>
                   {savable ? (
-                    <MyListChip s={s} pluginId={pluginId} item={item} details={details} mediaType="movie" onToast={onToast} />
+                    <MyListChip
+                      s={s}
+                      pluginId={pluginId}
+                      item={item}
+                      details={details}
+                      mediaType="movie"
+                      onToast={onToast}
+                    />
                   ) : null}
                   <TrailerChip s={s} url={d?.trailerUrl || sd?.trailerUrl || ''} onToast={onToast} />
                 </>
@@ -205,7 +236,9 @@ export function MovieLayout({
             </Text>
           ) : null}
           {plot ? (
-            <Text style={[styles.plot, {fontSize: 16 * s, lineHeight: 16 * s * 1.55, marginTop: 12 * s}]} numberOfLines={hasRelated ? 4 : 9}>
+            <Text
+              style={[styles.plot, {fontSize: 16 * s, lineHeight: 16 * s * 1.55, marginTop: 12 * s}]}
+              numberOfLines={hasRelated ? 4 : 9}>
               {plot}
             </Text>
           ) : null}
@@ -213,7 +246,16 @@ export function MovieLayout({
       </View>
       {hasRelated ? (
         <View style={{height: footerH}}>
-          <RelatedRow covered={covered || download} pluginId={pluginId} lists={lists} L={L} cardH={cardH} hPad={hPad} onOpen={onOpenRelated} refocus={relatedRefocus} />
+          <RelatedRow
+            covered={covered || download}
+            pluginId={pluginId}
+            lists={lists}
+            L={L}
+            cardH={cardH}
+            hPad={hPad}
+            onOpen={onOpenRelated}
+            refocus={relatedRefocus}
+          />
         </View>
       ) : null}
       {download ? (

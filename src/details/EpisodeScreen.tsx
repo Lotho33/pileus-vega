@@ -148,7 +148,13 @@ export function EpisodeScreen({
     nav,
   });
 
-  const metaOf = (e: {id: string; title: string; thumb: string; seasonNumber: number; episodeNumber: number}): DownloadMeta => ({
+  const metaOf = (e: {
+    id: string;
+    title: string;
+    thumb: string;
+    seasonNumber: number;
+    episodeNumber: number;
+  }): DownloadMeta => ({
     mediaId: e.id,
     parentId,
     title: e.title || `Episodio ${e.episodeNumber}`,
@@ -163,7 +169,11 @@ export function EpisodeScreen({
   const hPad = W * catalogHPadRatio;
   const stillW = W * 0.36;
   const metaExtra = [
-    seasonNumber > 0 && episodeNumber > 0 ? `S${seasonNumber} · E${episodeNumber}` : episodeNumber > 0 ? `Ep. ${episodeNumber}` : '',
+    seasonNumber > 0 && episodeNumber > 0
+      ? `S${seasonNumber} · E${episodeNumber}`
+      : episodeNumber > 0
+      ? `Ep. ${episodeNumber}`
+      : '',
     ep?.airDate ? fmtAirDate(ep.airDate) : '',
   ]
     .filter(Boolean)
@@ -221,18 +231,35 @@ export function EpisodeScreen({
                   resume
                     ? () => {
                         const src = raw.sources.find(x => x.id === resume.mediaId);
-                        onPlay({...base, streamId: resume.mediaId, sourceLabel: src?.label ?? '', startAt: resume.progressTime});
+                        onPlay({
+                          ...base,
+                          streamId: resume.mediaId,
+                          sourceLabel: src?.label ?? '',
+                          startAt: resume.progressTime,
+                        });
                       }
                     : undefined
                 }
                 resumeStreamId={resume?.mediaId}
-              onPlay={src => onPlay({...base, streamId: src.id, sourceLabel: src.label})}
-                trailing={canDownload ? <DownloadChip ref={chipRef} s={s} onPress={() => setDownload(true)} /> : undefined}
+                onPlay={src => onPlay({...base, streamId: src.id, sourceLabel: src.label})}
+                trailing={
+                  canDownload ? (
+                    <DownloadChip
+                      ref={chipRef}
+                      s={s}
+                      pluginId={pluginId}
+                      mediaId={mediaId}
+                      onPress={() => setDownload(true)}
+                    />
+                  ) : undefined
+                }
               />
               {note ? <Text style={[styles.note, {fontSize: 15 * s, marginTop: 8 * s}]}>{note}</Text> : null}
             </View>
             {plot ? (
-              <Text style={[styles.plot, {fontSize: 17 * s, lineHeight: 17 * s * 1.6, marginTop: 20 * s}]} numberOfLines={8}>
+              <Text
+                style={[styles.plot, {fontSize: 17 * s, lineHeight: 17 * s * 1.6, marginTop: 20 * s}]}
+                numberOfLines={8}>
                 {plot}
               </Text>
             ) : null}
