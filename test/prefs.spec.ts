@@ -29,9 +29,15 @@ describe('plugin prefs', () => {
     }),
   );
 
-  it('orders and hides plugins, unknown ids keep server order after', () => {
+  it('orders and hides plugins, unknown ids follow by id', () => {
     const out = applyPluginPrefs(['a', 'c', 'd', 'b'].map(plugin), prefs);
     expect(out.map(p => p.pluginId)).toEqual(['b', 'a', 'd']);
+  });
+
+  it('without a saved order, plugins go by id (server order is random)', () => {
+    const none = parsePluginPrefs('');
+    const out = applyPluginPrefs(['d', 'b', 'a', 'c'].map(plugin), none);
+    expect(out.map(p => p.pluginId)).toEqual(['a', 'b', 'c', 'd']);
   });
 
   it('orders and hides catalogs per plugin', () => {

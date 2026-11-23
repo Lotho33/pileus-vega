@@ -56,8 +56,13 @@ function sortByOrder<T>(items: T[], order: string[], id: (t: T) => string): T[] 
 }
 
 export function applyPluginPrefs(plugins: PluginInfo[], prefs: PluginPrefs): PluginInfo[] {
+  // By id first, as pileus-player's MediaRepository._orderPlugins:
+  // mycelium's ListPlugins walks a Go map, so its own order changes on
+  // every call — without a saved order the nav reshuffled itself, and
+  // never matched the other apps.
+  const byId = [...plugins].sort((a, b) => (a.pluginId < b.pluginId ? -1 : a.pluginId > b.pluginId ? 1 : 0));
   return sortByOrder(
-    plugins.filter(p => !prefs.hidden.has(p.pluginId)),
+    byId.filter(p => !prefs.hidden.has(p.pluginId)),
     prefs.order,
     p => p.pluginId,
   );
@@ -81,12 +86,7 @@ export function applyCatalogPrefs(
 
 /** Same gate as home_view.dart's _isPluginReady. */
 export function isPluginReady(p: PluginInfo): boolean {
-  return (
-    !p.needsConfig &&
-    p.statusLabel !== 'syncing' &&
-    p.statusLabel !== 'error' &&
-    p.catalogs.length > 0
-  );
+  return !p.needsConfig && p.statusLabel !== 'syncing' && p.statusLabel !== 'error' && p.catalogs.length > 0;
 }
 
 /**
@@ -158,7 +158,12 @@ export interface SubtitleStyle {
   bottomPadding: number;
 }
 
-export const SUBTITLE_DEFAULTS: SubtitleStyle = {fontSize: 32, colorArgb: 0xffffffff, bgEnabled: true, bottomPadding: 80};
+export const SUBTITLE_DEFAULTS: SubtitleStyle = {
+  fontSize: 32,
+  colorArgb: 0xffffffff,
+  bgEnabled: true,
+  bottomPadding: 80,
+};
 export const SUBTITLE_SIZE = {min: 16, max: 64, step: 2};
 export const SUBTITLE_PADDING = {min: 0, max: 300, step: 10};
 export const SUBTITLE_COLORS: {argb: number; label: string}[] = [

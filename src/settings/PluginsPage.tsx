@@ -37,7 +37,9 @@ function usePluginPrefs() {
 /** Every plugin, the profile's order first (hidden ones included). */
 export function orderedPlugins(list: PluginInfo[], order: string[]): PluginInfo[] {
   const rank = new Map(order.map((id, i) => [id, i]));
-  return list
+  // Unsaved ones by id, as the home's nav (core/prefs applyPluginPrefs).
+  return [...list]
+    .sort((a, b) => (a.pluginId < b.pluginId ? -1 : a.pluginId > b.pluginId ? 1 : 0))
     .map((p, i) => ({p, r: rank.get(p.pluginId) ?? order.length + i}))
     .sort((a, b) => a.r - b.r)
     .map(x => x.p);
