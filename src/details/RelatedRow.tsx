@@ -39,7 +39,11 @@ export function RelatedRow({
   onOpen,
   covered,
   refocus = 0,
+  onExitUp,
 }: {
+  /** ↑ out of the row (from CORRELATI, or the only list): back where the
+   * user came down from — the episode list — instead of the nearest view. */
+  onExitUp?: () => void;
   /** A new token puts focus back on the last focused card (popup closed). */
   refocus?: number;
   /** Something is over the page (popup, player). */
@@ -90,7 +94,14 @@ export function RelatedRow({
     return () => clearTimeout(t);
   }, [swapping]);
   useTVEventHandler(evt => {
-    if (!both || !inRow.current || gate() || evt.eventKeyAction === 1 || Date.now() - enteredAt.current < ENTRY_KEY_MS) {
+    if (!inRow.current || gate() || evt.eventKeyAction === 1 || Date.now() - enteredAt.current < ENTRY_KEY_MS) {
+      return;
+    }
+    if (evt.eventType === 'up' && (idx === 0 || !both) && onExitUp) {
+      onExitUp();
+      return;
+    }
+    if (!both) {
       return;
     }
     if (evt.eventType === 'down' && idx === 0) {
@@ -112,7 +123,7 @@ export function RelatedRow({
     // ↓ never leaves the row; on SIMILI ↑ stays too (it switches back).
     // autoFocus: a ↓ from the buttons above reaches the row even when no
     // card sits straight under them.
-    <TVFocusGuideView autoFocus={!swapping} trapFocusDown trapFocusUp={idx === 1}>
+    <TVFocusGuideView autoFocus={!swapping} trapFocusDown trapFocusUp={idx === 1 || !!onExitUp}>
       <View style={[styles.header, {paddingHorizontal: hPad}]}>
         <Text style={[styles.title, {fontSize: fs}]}>{idx === 0 ? 'CORRELATI' : 'SIMILI'}</Text>
         {both ? (

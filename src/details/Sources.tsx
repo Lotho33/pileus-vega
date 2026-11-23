@@ -103,24 +103,31 @@ export const PlayButton = forwardRef<
  * (details_actions.dart detailsSecondaryChip). The ref lets a closing dialog
  * put focus back.
  */
-export const ActionChip = forwardRef<View, {s: number; icon: IconName; label: string; onPress: () => void}>(
-  function ActionChip({icon, label, onPress}, ref) {
-    const [focused, setFocused] = useState(false);
-    const color = focused ? colors.textHigh : colors.textMid;
-    return (
-      <Pressable
-        ref={ref}
-        accessibilityLabel={label}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        onPress={onPress}
-        style={[styles.chip, focused && styles.chipFocused]}>
-        <Icon name={icon} size={px(14)} color={color} />
-        <Text style={[styles.chipText, {color}]}>{label}</Text>
-      </Pressable>
-    );
-  },
-);
+export const ActionChip = forwardRef<
+  View,
+  {s: number; icon: IconName; label: string; onPress: () => void; onFocusChange?: (focused: boolean) => void}
+>(function ActionChip({icon, label, onPress, onFocusChange}, ref) {
+  const [focused, setFocused] = useState(false);
+  const color = focused ? colors.textHigh : colors.textMid;
+  return (
+    <Pressable
+      ref={ref}
+      accessibilityLabel={label}
+      onFocus={() => {
+        setFocused(true);
+        onFocusChange?.(true);
+      }}
+      onBlur={() => {
+        setFocused(false);
+        onFocusChange?.(false);
+      }}
+      onPress={onPress}
+      style={[styles.chip, focused && styles.chipFocused]}>
+      <Icon name={icon} size={px(14)} color={color} />
+      <Text style={[styles.chipText, {color}]}>{label}</Text>
+    </Pressable>
+  );
+});
 
 /**
  * "Scarica", or "Scaricato" for a title already downloaded or on its way

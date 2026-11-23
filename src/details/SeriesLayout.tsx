@@ -335,9 +335,19 @@ export function SeriesLayout({
   // there: the episodes past the 5-row window are still laid out below it,
   // over the footer, so ↓ always found one of them first.
   const [enterRelated, setEnterRelated] = useState(0);
+  const inChips = useRef(false);
+  const onChipFocus = (f: boolean) => {
+    inChips.current = f;
+  };
   const inEpisodes = useRef(false);
   const epFocusAt = useRef(0);
   useTVEventHandler(evt => {
+    // ↓ from "La mia lista" / "Trailer" goes to the related row below (as on
+    // Android TV), not back into the episodes beside them.
+    if (hasRelated && inChips.current && evt.eventType === 'down' && evt.eventKeyAction !== 1 && !gate()) {
+      setEnterRelated(t => t + 1);
+      return;
+    }
     if (!hasRelated || !inEpisodes.current || gate() || evt.eventKeyAction === 1) {
       return;
     }
@@ -429,10 +439,18 @@ export function SeriesLayout({
           {/* series_page_layout: "La mia lista" / "Trailer" above the plot,
               reached with ← from the episodes. */}
           {myListSupported || sd?.trailerUrl ? (
-            <View style={[styles.chips, {marginTop: 10 * s, gap: 10 * s}]}>
-              <MyListChip s={s} pluginId={pluginId} item={item} details={details} mediaType="series" onToast={onToast} />
-              <TrailerChip s={s} url={sd?.trailerUrl ?? ''} onToast={onToast} />
-            </View>
+            <TVFocusGuideView style={[styles.chips, {marginTop: 10 * s, gap: 10 * s}]} trapFocusDown>
+              <MyListChip
+                s={s}
+                pluginId={pluginId}
+                item={item}
+                details={details}
+                mediaType="series"
+                onToast={onToast}
+                onFocusChange={onChipFocus}
+              />
+              <TrailerChip s={s} url={sd?.trailerUrl ?? ''} onToast={onToast} onFocusChange={onChipFocus} />
+            </TVFocusGuideView>
           ) : null}
           {plot ? (
             <Text
@@ -524,6 +542,7 @@ export function SeriesLayout({
             hPad={hPad}
             onOpen={onOpenRelated}
             refocus={relatedRefocus + enterRelated}
+            onExitUp={episodes.length ? () => focusSoon(() => epRefs.current.get(lastEp.current)) : undefined}
           />
         </View>
       ) : null}

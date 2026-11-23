@@ -15,6 +15,7 @@ export function MyListChip({
   details,
   mediaType,
   onToast,
+  onFocusChange,
 }: {
   s: number;
   pluginId: string;
@@ -23,6 +24,7 @@ export function MyListChip({
   details: DetailsResponse | null | undefined;
   mediaType: 'movie' | 'series';
   onToast: (text: string) => void;
+  onFocusChange?: (focused: boolean) => void;
 }) {
   const {supported, items} = useMyList();
   if (!supported) {
@@ -34,6 +36,7 @@ export function MyListChip({
       s={s}
       icon={saved ? 'check' : 'add'}
       label={saved ? 'Nella mia lista' : 'La mia lista'}
+      onFocusChange={onFocusChange}
       onPress={() =>
         myList
           .toggle(myListItemFromDetails(pluginId, item, details, mediaType))
@@ -43,7 +46,17 @@ export function MyListChip({
   );
 }
 
-export function TrailerChip({s, url, onToast}: {s: number; url: string; onToast: (text: string) => void}) {
+export function TrailerChip({
+  s,
+  url,
+  onToast,
+  onFocusChange,
+}: {
+  s: number;
+  url: string;
+  onToast: (text: string) => void;
+  onFocusChange?: (focused: boolean) => void;
+}) {
   if (!url.trim()) {
     return null;
   }
@@ -52,6 +65,7 @@ export function TrailerChip({s, url, onToast}: {s: number; url: string; onToast:
       s={s}
       icon="movie"
       label="Trailer"
+      onFocusChange={onFocusChange}
       onPress={() =>
         openTrailer(url).then(ok => {
           if (!ok) {
