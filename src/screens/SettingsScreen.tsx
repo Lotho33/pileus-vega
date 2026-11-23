@@ -10,6 +10,7 @@ import {ConfirmDialog} from '../components/ConfirmDialog';
 import type {PluginInfo} from '../gen/media';
 import type {PlayRequest} from '../player/session';
 import {DownloadsPage} from '../settings/DownloadsPage';
+import {ServerPage} from '../settings/ServerPage';
 import {PluginPage, PluginsPage} from '../settings/PluginsPage';
 import {PreferencesPage} from '../settings/PreferencesPage';
 import {ProfilePage} from '../settings/ProfilePage';
@@ -23,6 +24,7 @@ type SettingsPage =
   | {kind: 'prefs'}
   | {kind: 'plugins'}
   | {kind: 'downloads'}
+  | {kind: 'server'}
   | {kind: 'plugin'; plugin: PluginInfo};
 
 type Dialog = 'server' | 'exit' | null;
@@ -50,6 +52,13 @@ function MainPage({
         onPress={() => open({kind: 'profile'})}
       />
       <SectionHeader title="Connessione" />
+      <Row
+        icon="info"
+        label="Server"
+        subtitle="Indirizzo, versione e stato del server"
+        nav
+        onPress={() => open({kind: 'server'})}
+      />
       <Row
         icon="dns"
         label="Cambia server"
@@ -130,6 +139,8 @@ export function SettingsScreen({
         <ProfilePage />
       ) : top.kind === 'prefs' ? (
         <PreferencesPage />
+      ) : top.kind === 'server' ? (
+        <ServerPage />
       ) : top.kind === 'downloads' ? (
         <DownloadsPage onPlay={onPlay} focusToken={refocus} />
       ) : top.kind === 'plugins' ? (
