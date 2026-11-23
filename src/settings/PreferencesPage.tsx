@@ -41,8 +41,10 @@ function step(v: number, r: {min: number; max: number; step: number}, dir: -1 | 
 export function PreferencesPage() {
   const first = useRef<View>(null);
   const [prefs, setPrefs] = useState<DevicePrefs | null>(null);
-  const {profile, updateProfile} = useAuth();
-  const [sub, setSub] = useState<SubtitleStyle>(() => parseSubtitleStyle(profile?.preferencesJson ?? ''));
+  const {profile, updateProfile, session} = useAuth();
+  const [sub, setSub] = useState<SubtitleStyle>(() =>
+    parseSubtitleStyle(profile?.preferencesJson ?? '', session.deviceId),
+  );
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [subNote, setSubNote] = useState('');
 
@@ -59,7 +61,7 @@ export function PreferencesPage() {
       try {
         const r = await mycelium.setProfilePreferences(
           profile.profileId,
-          writeSubtitleStyle(profile.preferencesJson, next),
+          writeSubtitleStyle(profile.preferencesJson, next, session.deviceId),
         );
         updateProfile(r);
         setSubNote('');

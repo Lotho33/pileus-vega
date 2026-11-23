@@ -233,8 +233,8 @@ export function PlayerScreen({
   const speedRef = useRef(1);
   const [videoSize, setVideoSize] = useState({w: 0, h: 0});
   const {width: W, height: H} = useWindowDimensions();
-  const {profile} = useAuth();
-  const subStyle = parseSubtitleStyle(profile?.preferencesJson ?? '');
+  const {profile, session} = useAuth();
+  const subStyle = parseSubtitleStyle(profile?.preferencesJson ?? '', session.deviceId);
   const [subText, setSubText] = useState('');
   const [preview, setPreview] = useState<number | null>(null);
   const [attempt, setAttempt] = useState(0);

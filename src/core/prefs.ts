@@ -143,6 +143,12 @@ export function writePluginPrefs(json: string, prefs: PluginPrefs): string {
 // ── Subtitles block ({"subtitles": {fontSize, colorArgb, bgEnabled,
 // bottomPadding}}), same keys and defaults as pileus-player's ProfilePrefs /
 // SettingsRepository. Sizes are Flutter logical pixels, i.e. Vega dp.
+//
+// Per device AND profile, as pileus-player: each paired device keeps its
+// own copy under "deviceSubtitles": {<deviceId>: {...}} in the profile's
+// blob (a TV and a phone want different sizes). The profile-level
+// "subtitles" block is only read, as the starting point for a device with
+// no entry yet, and left as is for older app versions.
 
 export interface SubtitleStyle {
   fontSize: number;
@@ -162,13 +168,16 @@ export const SUBTITLE_COLORS: {argb: number; label: string}[] = [
   {argb: 0xff80d8ff, label: 'Ciano'},
 ];
 
-export function parseSubtitleStyle(json: string): SubtitleStyle {
+const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+
+/** This device's style: its own entry over the profile-level block over the defaults. */
+export function parseSubtitleStyle(json: string, deviceId = ''): SubtitleStyle {
   let s: Record<string, unknown> = {};
   try {
-    const sub = json ? JSON.parse(json)?.subtitles : null;
-    if (sub && typeof sub === 'object') {
-      s = sub;
-    }
+    const root = json ? JSON.parse(json) : null;
+    const shared = isObj(root?.subtitles) ? root.subtitles : {};
+    const own = deviceId && isObj(root?.deviceSubtitles?.[deviceId]) ? root.deviceSubtitles[deviceId] : {};
+    s = {...shared, ...own};
   } catch {
     s = {};
   }
@@ -183,8 +192,12 @@ export function parseSubtitleStyle(json: string): SubtitleStyle {
   };
 }
 
-/** `json` with its subtitles block set to `style`, other blocks untouched. */
-export function writeSubtitleStyle(json: string, style: SubtitleStyle): string {
+/**
+ * `json` with this device's subtitle entry set to `style`, everything else
+ * (the profile-level block, other devices' entries) untouched. No device id
+ * (not paired): the profile-level block, as before.
+ */
+export function writeSubtitleStyle(json: string, style: SubtitleStyle, deviceId = ''): string {
   let root: Record<string, unknown> = {};
   try {
     const parsed = json ? JSON.parse(json) : {};
@@ -194,7 +207,11 @@ export function writeSubtitleStyle(json: string, style: SubtitleStyle): string {
   } catch {
     root = {};
   }
-  return JSON.stringify({...root, v: 1, subtitles: {...style}});
+  if (!deviceId) {
+    return JSON.stringify({...root, v: 1, subtitles: {...style}});
+  }
+  const devices = isObj(root.deviceSubtitles) ? root.deviceSubtitles : {};
+  return JSON.stringify({...root, v: 1, deviceSubtitles: {...devices, [deviceId]: {...style}}});
 }
 
 /** 0xAARRGGBB → rgba() for React Native. */

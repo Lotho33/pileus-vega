@@ -114,6 +114,22 @@ describe('subtitle style', () => {
     expect(out.subtitles.bottomPadding).toBe(120);
     expect(argbToCss(0xffffeb3b)).toBe('rgba(255,235,59,1.000)');
   });
+
+  it('is per device: own entry over the profile block, others untouched', () => {
+    const src = JSON.stringify({
+      v: 1,
+      subtitles: {fontSize: 32, bottomPadding: 80},
+      deviceSubtitles: {phone: {fontSize: 24}},
+    });
+    // A device with no entry starts from the profile-level block.
+    expect(parseSubtitleStyle(src, 'tv').fontSize).toBe(32);
+    expect(parseSubtitleStyle(src, 'phone').fontSize).toBe(24);
+    const out = JSON.parse(writeSubtitleStyle(src, {...parseSubtitleStyle(src, 'tv'), fontSize: 48}, 'tv'));
+    expect(out.deviceSubtitles.tv.fontSize).toBe(48);
+    expect(out.deviceSubtitles.phone).toEqual({fontSize: 24});
+    expect(out.subtitles).toEqual({fontSize: 32, bottomPadding: 80});
+    expect(parseSubtitleStyle(JSON.stringify(out), 'tv').fontSize).toBe(48);
+  });
 });
 
 import {moveItem} from '../src/settings/reorder';
