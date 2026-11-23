@@ -104,33 +104,37 @@ function Results({
       <Text style={[styles.resultTitle, {fontSize: width * 0.0195}]} numberOfLines={1}>
         {title}
       </Text>
-      <FlatList
-        ref={list}
-        horizontal
-        data={cards}
-        keyExtractor={c => c.key}
-        getItemLayout={(_, index) => ({length: stride, offset: stride * index, index})}
-        scrollEnabled={false}
-        showsHorizontalScrollIndicator={false}
-        style={{width, height: cardH * 1.12}}
-        contentContainerStyle={{paddingHorizontal: pad}}
-        renderItem={({item, index}) => (
-          <View style={[styles.cell, {width: stride}]}>
-            <Card
-              card={item}
-              width={cardW}
-              height={cardH}
-              preferred={false}
-              onFocus={() => {
-                setFocused(index);
-                const first = Math.max(0, Math.min(index, cards.length - slots));
-                list.current?.scrollToOffset({offset: stride * first, animated: true});
-              }}
-              onPress={() => onOpen(item)}
-            />
-          </View>
-        )}
-      />
+      {/* autoFocus: ↓ from the keyboard lands on the first result (then the
+          last one focused), as on Android TV — not the nearest card. */}
+      <TVFocusGuideView autoFocus>
+        <FlatList
+          ref={list}
+          horizontal
+          data={cards}
+          keyExtractor={c => c.key}
+          getItemLayout={(_, index) => ({length: stride, offset: stride * index, index})}
+          scrollEnabled={false}
+          showsHorizontalScrollIndicator={false}
+          style={{width, height: cardH * 1.12}}
+          contentContainerStyle={{paddingHorizontal: pad}}
+          renderItem={({item, index}) => (
+            <View style={[styles.cell, {width: stride}]}>
+              <Card
+                card={item}
+                width={cardW}
+                height={cardH}
+                preferred={false}
+                onFocus={() => {
+                  setFocused(index);
+                  const first = Math.max(0, Math.min(index, cards.length - slots));
+                  list.current?.scrollToOffset({offset: stride * first, animated: true});
+                }}
+                onPress={() => onOpen(item)}
+              />
+            </View>
+          )}
+        />
+      </TVFocusGuideView>
     </View>
   );
 }
@@ -341,11 +345,14 @@ export function QuickSearch({
             ) : results && results.length ? (
               <>
                 <Results cards={results} variant={variant} width={innerW} maxCardH={L.H * 0.3} onOpen={openItem} />
-                <SeeAllButton
-                  label={more > 0 ? `Vedi tutti i risultati (+${more})` : 'Vedi tutti i risultati'}
-                  fontSize={L.H * (30 / 1080)}
-                  onPress={openFull}
-                />
+                {/* ←/→ stay put here (they used to jump back up into the row). */}
+                <TVFocusGuideView trapFocusLeft trapFocusRight>
+                  <SeeAllButton
+                    label={more > 0 ? `Vedi tutti i risultati (+${more})` : 'Vedi tutti i risultati'}
+                    fontSize={L.H * (30 / 1080)}
+                    onPress={openFull}
+                  />
+                </TVFocusGuideView>
               </>
             ) : results ? (
               <Text style={[styles.empty, {fontSize: L.H * 0.02}]}>Nessun risultato per “{query.trim()}”</Text>
