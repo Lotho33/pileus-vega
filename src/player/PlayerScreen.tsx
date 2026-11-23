@@ -294,7 +294,8 @@ export function PlayerScreen({
       engine.current?.pause();
       setPhase({
         kind: 'elsewhere',
-        message: `In riproduzione su «${other}».`,
+        // Some servers already put «» around the name.
+        message: `In riproduzione su «${other.replace(/^[«"\s]+|[»"\s]+$/g, '')}».`,
       });
     }
   }, []);

@@ -159,7 +159,7 @@ export function PreferencesPage() {
         value={`${sub.bottomPadding}px`}
         onStep={dir => updateSub({...sub, bottomPadding: stepNum(sub.bottomPadding, SUBTITLE_PADDING, dir)})}
       />
-      {subNote ? <Note text={subNote} /> : <Note text="Valgono per il profilo, su tutti i dispositivi." />}
+      {subNote ? <Note text={subNote} /> : <Note text="Valgono per questo profilo su questo dispositivo." />}
       <SectionHeader title="Player" />
       {prefs ? (
         <>
