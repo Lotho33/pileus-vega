@@ -5,7 +5,7 @@
 // either step drops the whole creation.
 
 import React, {forwardRef, useCallback, useEffect, useRef, useState} from 'react';
-import {ActivityIndicator, Dimensions, Image, Pressable, StyleSheet, View} from 'react-native';
+import {ActivityIndicator, Dimensions, Image, Pressable, StyleSheet, View, findNodeHandle} from 'react-native';
 import {Text} from '../components/Text';
 import {Avatar} from '../components/Avatar';
 import {AvatarPicker} from '../components/AvatarPicker';
@@ -34,82 +34,94 @@ function accentFor(name: string): string {
   return ACCENTS[Math.abs(h) % ACCENTS.length];
 }
 
-const ProfileTile = forwardRef<View, {p: ProfileResponse; k: number; preferred: boolean; onPress: () => void}>(
-  function ProfileTile({p, k, preferred, onPress}, ref) {
+type TileProps = {p: ProfileResponse; k: number; preferred: boolean; onPress: () => void; onFocused?: () => void};
+
+const ProfileTile = forwardRef<View, TileProps>(function ProfileTile({p, k, preferred, onPress, onFocused}, ref) {
+  const [focused, setFocused] = useState(false);
+  const size = 110 * k;
+  return (
+    <Pressable
+      ref={ref}
+      testID={`profile-${p.profileId}`}
+      accessibilityLabel={p.name}
+      hasTVPreferredFocus={preferred}
+      onFocus={() => {
+        setFocused(true);
+        onFocused?.();
+      }}
+      onBlur={() => setFocused(false)}
+      onPress={onPress}
+      style={[styles.tile, {width: size + 6 * k}, focused && styles.tileFocused]}>
+      <View>
+        <View
+          style={{
+            borderRadius: 16 * k,
+            borderWidth: 3 * k,
+            borderColor: focused ? accentFor(p.name) : 'transparent',
+          }}>
+          <Avatar name={p.name} url={p.avatarUrl} size={size} radius={13 * k} />
+        </View>
+        {p.pinProtected && !p.unlocked ? (
+          <View style={[styles.lock, {right: -4 * k, bottom: -4 * k, padding: 5 * k, borderWidth: 1.5 * k}]}>
+            <Icon name="lock" size={16 * k} color="rgba(255,255,255,0.7)" />
+          </View>
+        ) : null}
+      </View>
+      <Text
+        style={[styles.name, {marginTop: 14 * k, fontSize: captionFont(L_H())}, focused && styles.nameFocused]}
+        numberOfLines={1}>
+        {p.name}
+      </Text>
+    </Pressable>
+  );
+});
+
+const AddProfileTile = forwardRef<View, {k: number; onPress: () => void; preferred?: boolean; onFocused?: () => void}>(
+  function AddProfileTile({k, onPress, preferred, onFocused}, ref) {
     const [focused, setFocused] = useState(false);
     const size = 110 * k;
     return (
       <Pressable
         ref={ref}
-        testID={`profile-${p.profileId}`}
-        accessibilityLabel={p.name}
         hasTVPreferredFocus={preferred}
-        onFocus={() => setFocused(true)}
+        accessibilityLabel="Aggiungi profilo"
+        onFocus={() => {
+          setFocused(true);
+          onFocused?.();
+        }}
         onBlur={() => setFocused(false)}
         onPress={onPress}
         style={[styles.tile, {width: size + 6 * k}, focused && styles.tileFocused]}>
-        <View>
-          <View
-            style={{
-              borderRadius: 16 * k,
-              borderWidth: 3 * k,
-              borderColor: focused ? accentFor(p.name) : 'transparent',
-            }}>
-            <Avatar name={p.name} url={p.avatarUrl} size={size} radius={13 * k} />
-          </View>
-          {p.pinProtected && !p.unlocked ? (
-            <View style={[styles.lock, {right: -4 * k, bottom: -4 * k, padding: 5 * k, borderWidth: 1.5 * k}]}>
-              <Icon name="lock" size={16 * k} color="rgba(255,255,255,0.7)" />
-            </View>
-          ) : null}
+        <View
+          style={[
+            styles.add,
+            {width: size + 6 * k, height: size + 6 * k, borderRadius: 16 * k, borderWidth: 3 * k},
+            focused && styles.addFocused,
+          ]}>
+          <Icon name="add" size={size * 0.35} color={focused ? '#fff' : 'rgba(255,255,255,0.38)'} />
         </View>
         <Text
-          style={[styles.name, {marginTop: 14 * k, fontSize: captionFont(L_H())}, focused && styles.nameFocused]}
-          numberOfLines={1}>
-          {p.name}
+          style={[styles.addLabel, {marginTop: 14 * k, fontSize: captionFont(L_H())}, focused && styles.addLabelOn]}>
+          Aggiungi profilo
         </Text>
       </Pressable>
     );
   },
 );
 
-const AddProfileTile = forwardRef<View, {k: number; onPress: () => void; preferred?: boolean}>(function AddProfileTile(
-  {k, onPress, preferred},
+/** "Cambia server": a plain text link under the tiles. ↑ goes back to the
+ * tile it came from (`nextFocusUp`), as on Android TV — not the nearest. */
+const TextLink = forwardRef<View, {label: string; onPress: () => void; nextFocusUp?: number}>(function TextLink(
+  {label, onPress, nextFocusUp},
   ref,
 ) {
-  const [focused, setFocused] = useState(false);
-  const size = 110 * k;
-  return (
-    <Pressable
-      ref={ref}
-      hasTVPreferredFocus={preferred}
-      accessibilityLabel="Aggiungi profilo"
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-      onPress={onPress}
-      style={[styles.tile, {width: size + 6 * k}, focused && styles.tileFocused]}>
-      <View
-        style={[
-          styles.add,
-          {width: size + 6 * k, height: size + 6 * k, borderRadius: 16 * k, borderWidth: 3 * k},
-          focused && styles.addFocused,
-        ]}>
-        <Icon name="add" size={size * 0.35} color={focused ? '#fff' : 'rgba(255,255,255,0.38)'} />
-      </View>
-      <Text style={[styles.addLabel, {marginTop: 14 * k, fontSize: captionFont(L_H())}, focused && styles.addLabelOn]}>
-        Aggiungi profilo
-      </Text>
-    </Pressable>
-  );
-});
-
-/** "Cambia server": a plain text link under the tiles. */
-const TextLink = forwardRef<View, {label: string; onPress: () => void}>(function TextLink({label, onPress}, ref) {
   const [focused, setFocused] = useState(false);
   return (
     <Pressable
       ref={ref}
       accessibilityLabel={label}
+      // Pressable hands it on to its View; not in Pressable's own typings.
+      {...({nextFocusUp} as object)}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
       onPress={onPress}
@@ -128,6 +140,8 @@ export function ProfilesScreen() {
   const [pinFor, setPinFor] = useState<ProfileResponse | null>(null);
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
+  // The tile "Cambia server" goes back to on ↑: the last one focused.
+  const [upTarget, setUpTarget] = useState<number | undefined>(undefined);
   // Profile creation: the name step, then the avatar step for that name.
   const [creating, setCreating] = useState<null | {step: 'name'} | {step: 'avatar'; name: string}>(null);
   const tiles = useRef(new Map<string, View>());
@@ -270,6 +284,7 @@ export function ProfilesScreen() {
                   k={k}
                   preferred={session.lastProfileId ? p.profileId === session.lastProfileId : i === 0}
                   onPress={() => choose(p)}
+                  onFocused={() => setUpTarget(findNodeHandle(tiles.current.get(p.profileId) ?? null) ?? undefined)}
                 />
               ))}
               <AddProfileTile
@@ -277,10 +292,11 @@ export function ProfilesScreen() {
                 k={k}
                 preferred={profiles.length === 0}
                 onPress={() => setCreating({step: 'name'})}
+                onFocused={() => setUpTarget(findNodeHandle(addRef.current) ?? undefined)}
               />
             </View>
             <View style={{height: (H * 32) / 1080}} />
-            <TextLink label="Cambia server" onPress={changeServer} />
+            <TextLink label="Cambia server" onPress={changeServer} nextFocusUp={upTarget} />
           </>
         )}
         {error && profiles?.length ? <Text style={styles.error}>{error}</Text> : null}
