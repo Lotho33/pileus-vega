@@ -68,6 +68,8 @@ import {PLAYBACK_SPEEDS, playbackSpeedLabel} from './speed';
 import {getViewMode, setViewMode, surfaceBox, ViewMode, VIEW_MODES} from './viewMode';
 import {LiveFailover} from './liveFailover';
 import {advanceContinueWatching, isEpisodeOfSeries} from './cwAdvance';
+import {InfoPanel} from './InfoPanel';
+import {loadPlayerInfo, PlayerInfo, playerInfoBase} from './playerInfo';
 
 const HIDE_AFTER_MS = 5000;
 const HEARTBEAT_MS = 10000;
@@ -224,6 +226,9 @@ export function PlayerScreen({
   const [duration, setDuration] = useState(0);
   const [overlay, setOverlay] = useState(true);
   const [panel, setPanel] = useState<Panel>(null);
+  // The info panel ((i) button / Info key): what is playing, the video going
+  // on beside it (InfoPanel). `details` completes it from the plugin.
+  const [info, setInfo] = useState<{base: PlayerInfo; details: Promise<PlayerInfo>} | null>(null);
   const [audio, setAudio] = useState<Track[]>([]);
   const [text, setText] = useState<Track[]>([]);
   const [video, setVideo] = useState<Track[]>([]);
@@ -871,10 +876,17 @@ export function PlayerScreen({
   // Held ←/→ with the overlay hidden: preview the target, seek on release.
   const held = useRef({dir: 0, count: 0, target: 0});
   useTVEventHandler(evt => {
+    // The remote's Info (or Menu) key opens the info panel; the panel
+    // handles its own keys while open.
+    const key = evt.eventType.toLowerCase();
+    if (!info && !panel && phase.kind === 'playing' && evt.eventKeyAction !== 1 && (key === 'info' || key === 'menu')) {
+      openInfo();
+      return;
+    }
     // Back has its own handler (hardwareBackPress below). Seen here first, it
     // brought the controls up, and that handler then only hid them again:
     // Back never left the player.
-    if (phase.kind !== 'playing' || panel || evt.eventType === 'back') {
+    if (phase.kind !== 'playing' || panel || info || evt.eventType === 'back') {
       return;
     }
     const isSeek = evt.eventType === 'left' || evt.eventType === 'right';
@@ -925,7 +937,10 @@ export function PlayerScreen({
 
   useEffect(() => {
     const sub = keplerBack.addEventListener('hardwareBackPress', () => {
-      if (panel && panel !== 'master') {
+      if (info) {
+        setInfo(null);
+        bumpOverlay();
+      } else if (panel && panel !== 'master') {
         setPanel('master');
       } else if (panel) {
         setPanel(null);
@@ -938,7 +953,29 @@ export function PlayerScreen({
       return true;
     });
     return () => sub.remove();
-  }, [panel, overlay, phase.kind, paused, onExit, keplerBack, bumpOverlay]);
+  }, [panel, info, overlay, phase.kind, paused, onExit, keplerBack, bumpOverlay]);
+
+  function openInfo() {
+    const r = reqRef.current;
+    const base = playerInfoBase({
+      title: r.title,
+      showTitle: r.showTitle,
+      seasonNumber: r.seasonNumber,
+      episodeNumber: r.episodeNumber,
+      year: r.year,
+      rating: r.rating,
+      durationSeconds: engine.current?.duration ?? 0,
+      genres: r.genres,
+      plot: r.plot,
+      isLive: r.isLive,
+    });
+    // The episode's own id when the list is known; the stream id otherwise
+    // (details of a source id may not exist: the base then stays as is).
+    const itemId = r.nav?.episodes[r.nav.index]?.id ?? r.streamId;
+    setPanel(null);
+    setOverlay(false);
+    setInfo({base, details: loadPlayerInfo(base, r.pluginId, itemId, r.parentId)});
+  }
 
   const switchSource = (id: string) => {
     const src = req.sources.find(s => s.id === id);
@@ -1247,7 +1284,7 @@ export function PlayerScreen({
         </View>
       ) : null}
 
-      {phase.kind === 'playing' && overlay ? (
+      {phase.kind === 'playing' && overlay && !info ? (
         <TVFocusGuideView style={StyleSheet.absoluteFill} trapFocusUp trapFocusDown trapFocusLeft trapFocusRight>
           <View style={styles.top}>
             <Gradient name="playerTop" direction="toBottom" />
@@ -1324,6 +1361,7 @@ export function PlayerScreen({
                   onFocus={bumpOverlay}
                 />
               ) : null}
+              <ControlButton icon="info" onPress={openInfo} onFocus={bumpOverlay} />
               <ControlButton icon="settings" onPress={() => setPanel('master')} onFocus={bumpOverlay} />
             </View>
           </View>
@@ -1389,6 +1427,16 @@ export function PlayerScreen({
         </View>
       ) : null}
 
+      {info ? (
+        <InfoPanel
+          base={info.base}
+          details={info.details}
+          onClose={() => {
+            setInfo(null);
+            bumpOverlay();
+          }}
+        />
+      ) : null}
       {panel ? (
         <TVFocusGuideView style={styles.panel} trapFocusUp trapFocusDown trapFocusLeft trapFocusRight>
           <Text style={styles.panelTitle}>{panelTitle}</Text>
