@@ -11,6 +11,7 @@ import {Image, StyleSheet, View} from 'react-native';
 import {DetailsSkeleton} from '../components/Skeleton';
 import {Text} from '../components/Text';
 import {mycelium} from '../core/api';
+import {episodeKindLabel} from '../core/episodeKind';
 import {backdropSrc} from '../core/images';
 import {batchGroups, DownloadMeta} from '../downloads/batch';
 import {DownloadDialog} from '../downloads/DownloadDialog';
@@ -213,6 +214,7 @@ export function EpisodeScreen({
                 year={0}
                 runtime={ep?.duration ? `${ep.duration} min` : ''}
                 extra={metaExtra}
+                kind={entry?.kind || episodeKindLabel(item?.extra?.filler)}
                 s={s}
               />
             </View>

@@ -5,6 +5,8 @@
 // the window follows focus (episodeWindow).
 
 import {languageBadges} from '../core/language';
+import {episodeKindLabel} from '../core/episodeKind';
+import {MetaWithKind} from '../components/MetaWithKind';
 import React, {forwardRef, memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {ActivityIndicator, Pressable, ScrollView, StyleSheet, View} from 'react-native';
 import {Text} from '../components/Text';
@@ -105,6 +107,7 @@ const EpisodeRow = memo(
       const n = ep.episodeNumber > 0 ? ep.episodeNumber : null;
       // This episode's own language versions, when the plugin says.
       const badges = languageBadges(ep.extra?.lang);
+      const kind = episodeKindLabel(ep.extra?.filler);
       const avail = Math.max(12, height - 18);
       const titleFs = Math.min(28 * s, avail * 0.52);
       const numFs = Math.min(38 * s, avail * 0.7);
@@ -139,11 +142,13 @@ const EpisodeRow = memo(
             {/* Duration, then the start of the plot on the same line
                 (episode_tile_row.dart): the row is wide and was empty past
                 the title. */}
-            {ep.duration > 0 || ep.plot ? (
+            {ep.duration > 0 || ep.plot || kind ? (
               <Text style={[styles.epDur, {fontSize: Math.min(17 * s, avail * 0.32)}]} numberOfLines={1}>
-                {[ep.duration > 0 ? `${ep.duration} min` : '', ep.plot.replace(/\n/g, ' ').trim()]
-                  .filter(Boolean)
-                  .join('  ·  ')}
+                <MetaWithKind
+                  parts={[ep.duration > 0 ? `${ep.duration} min` : '', ep.plot.replace(/\n/g, ' ').trim()]}
+                  kind={kind}
+                  at={ep.duration > 0 ? 1 : 0}
+                />
               </Text>
             ) : null}
           </View>
@@ -598,6 +603,7 @@ export function SeriesLayout({
                     thumb: e.thumbnailUrl,
                     episodeNumber: e.episodeNumber,
                     seasonNumber: e.seasonNumber || season?.number || 0,
+                    kind: episodeKindLabel(e.extra?.filler),
                   })),
                   index: Math.max(0, episodes.indexOf(ep)),
                   seasonIds: seasons.map(x => x.directoryId),

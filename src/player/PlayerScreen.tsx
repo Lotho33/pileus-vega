@@ -25,6 +25,7 @@
 import React, {forwardRef, memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, useWindowDimensions, View} from 'react-native';
 import {Text} from '../components/Text';
+import {MetaWithKind} from '../components/MetaWithKind';
 import {TVFocusGuideView, useKeplerBackHandler, useTVEventHandler} from '@amazon-devices/react-native-kepler';
 import {KeplerCaptionsView, KeplerVideoSurfaceView} from '@amazon-devices/react-native-w3cmedia';
 import {FocusButton} from '../components/FocusButton';
@@ -1393,7 +1394,7 @@ export function PlayerScreen({
           <Text style={styles.bannerLabel}>Prossimo episodio in {bannerSecs}s</Text>
           {nextEp ? (
             <Text style={styles.bannerTitle} numberOfLines={1}>
-              {episodeTitle(nextEp, req.showTitle)}
+              <MetaWithKind parts={[episodeTitle(nextEp, req.showTitle)]} kind={nextEp.kind} sep=" · " />
             </Text>
           ) : null}
           <View style={styles.bannerActions}>

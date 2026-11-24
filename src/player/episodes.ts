@@ -4,6 +4,7 @@
 
 import {mycelium} from '../core/api';
 import type {BrowseResponse, ResolveResponse, StreamSource} from '../gen/media';
+import {episodeKindLabel} from '../core/episodeKind';
 import {emptyRequest, PlayRequest} from './session';
 
 export interface EpisodeEntry {
@@ -12,6 +13,8 @@ export interface EpisodeEntry {
   thumb: string;
   episodeNumber: number;
   seasonNumber: number;
+  /** "Filler" / "Riassunto" (episodeKindLabel), absent when not known. */
+  kind?: string;
 }
 
 /** Where an episode sits: its season's list, and the series' seasons. */
@@ -47,6 +50,7 @@ export function episodesOf(r: BrowseResponse): EpisodeEntry[] {
       thumb: e.thumbnailUrl,
       episodeNumber: e.episodeNumber,
       seasonNumber: e.seasonNumber,
+      kind: episodeKindLabel(e.extra?.filler),
     }));
   }
   return r.items
@@ -57,6 +61,7 @@ export function episodesOf(r: BrowseResponse): EpisodeEntry[] {
       thumb: i.posterUrl,
       episodeNumber: i.episodeNumber,
       seasonNumber: i.seasonNumber,
+      kind: episodeKindLabel(i.extra?.filler),
     }));
 }
 

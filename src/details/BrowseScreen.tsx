@@ -12,6 +12,7 @@ import {Text} from '../components/Text';
 import {FocusButton} from '../components/FocusButton';
 import {Icon} from '../components/Icon';
 import {mycelium} from '../core/api';
+import {episodeKindLabel} from '../core/episodeKind';
 import {focusSoon} from '../core/focus';
 import type {CatalogItem} from '../gen/media';
 import type {HomeLayout} from '../home/layout';
@@ -150,6 +151,7 @@ export function BrowseScreen({
           thumb: i.posterUrl,
           episodeNumber: i.episodeNumber,
           seasonNumber: i.seasonNumber,
+          kind: episodeKindLabel(i.extra?.filler),
         })),
         index,
         seasonIds: [],

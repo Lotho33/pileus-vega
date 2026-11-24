@@ -5,6 +5,7 @@ import {Image, Pressable, StyleSheet, View} from 'react-native';
 import {Text} from '../components/Text';
 import {Gradient, GradientName} from '../components/Gradient';
 import {Icon, IconName} from '../components/Icon';
+import {EPISODE_KIND_COLOR} from '../core/episodeKind';
 import {backdropSrc, posterSrc} from '../core/images';
 import {colors, scaledStyles} from '../theme';
 
@@ -91,6 +92,7 @@ export function MetaRow({
   runtime,
   contentRating,
   extra,
+  kind,
   s,
 }: {
   rating: number;
@@ -98,6 +100,8 @@ export function MetaRow({
   runtime?: string;
   contentRating?: string;
   extra?: string;
+  /** Filler/Riassunto (episodeKindLabel), in its colour. */
+  kind?: string;
   s: number;
 }) {
   const fs = 16 * s;
@@ -112,6 +116,7 @@ export function MetaRow({
       {year > 0 ? <Text style={[styles.metaLow, {fontSize: fs}]}>{year}</Text> : null}
       {runtime ? <Text style={[styles.metaLow, {fontSize: fs}]}>{runtime}</Text> : null}
       {extra ? <Text style={[styles.metaLow, {fontSize: fs}]}>{extra}</Text> : null}
+      {kind ? <Text style={[styles.metaKind, {fontSize: fs}]}>{kind}</Text> : null}
       {contentRating ? (
         <View style={[styles.cr, {paddingHorizontal: 7 * s, paddingVertical: 2 * s}]}>
           <Text style={[styles.metaLow, {fontSize: 13 * s}]}>{contentRating}</Text>
@@ -180,6 +185,7 @@ const styles = scaledStyles({
   meta: {flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 14},
   metaMid: {color: colors.textMid},
   metaLow: {color: 'rgba(255,255,255,0.54)'},
+  metaKind: {color: EPISODE_KIND_COLOR, fontWeight: '600'},
   star: {color: '#FFD700'},
   cr: {borderWidth: 1, borderColor: colors.textLow, borderRadius: 4},
   action: {

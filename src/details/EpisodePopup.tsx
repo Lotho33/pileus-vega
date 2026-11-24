@@ -13,7 +13,9 @@ import {Gradient} from '../components/Gradient';
 import {Icon} from '../components/Icon';
 import {mycelium} from '../core/api';
 import {focusSoon} from '../core/focus';
+import {episodeKindLabel} from '../core/episodeKind';
 import {backdropSrc} from '../core/images';
+import {MetaWithKind} from '../components/MetaWithKind';
 import type {ContinueWatchingItem, EpisodeDetails, EpisodeInfo} from '../gen/media';
 import {colors, scaledStyles} from '../theme';
 import {DownloadChip, SourceButtons, useSources} from './Sources';
@@ -96,6 +98,7 @@ export function EpisodePopup({
     airDate ? fmtDate(airDate) : '',
     duration > 0 ? `${duration} min` : '',
   ].filter(Boolean);
+  const kind = episodeKindLabel(episode.extra?.filler);
 
   const maxW = Math.min(1000 * u, Math.max(520 * u, W * 0.469));
   const maxH = H - 60 * u;
@@ -135,7 +138,7 @@ export function EpisodePopup({
             ) : null}
           </View>
           <View style={{paddingHorizontal: 24 * u, paddingTop: 16 * u, paddingBottom: 28 * u}}>
-            {meta.length ? (
+            {meta.length || kind ? (
               <View style={styles.metaRow}>
                 {vote > 0 ? (
                   <Text style={[styles.vote, {fontSize: 16 * s}]}>
@@ -144,7 +147,9 @@ export function EpisodePopup({
                     {'   '}
                   </Text>
                 ) : null}
-                <Text style={[styles.meta, {fontSize: 16 * s}]}>{meta.join('  ·  ')}</Text>
+                <Text style={[styles.meta, {fontSize: 16 * s}]}>
+                  <MetaWithKind parts={meta} kind={kind} at={meta.length} />
+                </Text>
               </View>
             ) : null}
             {plot ? (
