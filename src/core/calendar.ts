@@ -110,7 +110,11 @@ export function calendarSubtitle(e: CalendarEntry): string {
   return [badge, own].filter(Boolean).join(' · ');
 }
 
-export const calendarIsEpisode = (e: CalendarEntry) => e.item?.mediaType === 'episode' || !!e.seriesId;
+/**
+ * The row's picture is an episode still (landscape) only for an episode item;
+ * a plugin may send the series' own card (portrait poster) with series_id.
+ */
+export const calendarLandscapeThumb = (e: CalendarEntry) => e.item?.mediaType === 'episode';
 
 /**
  * What OK opens: the series of an episode, or the title itself — only once

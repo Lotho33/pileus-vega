@@ -13,7 +13,7 @@ import {Icon} from '../components/Icon';
 import {mycelium} from '../core/api';
 import {
   calendarDayLabel,
-  calendarIsEpisode,
+  calendarLandscapeThumb,
   calendarOpenTarget,
   calendarRange,
   calendarReleaseTime,
@@ -248,7 +248,7 @@ const Row = React.forwardRef<View, {s: number; entry: CalendarEntry; pluginName:
     const [focused, setFocused] = useState(false);
     // An episode's still is landscape; a film's poster portrait.
     const thumbH = 96 * s;
-    const thumbW = calendarIsEpisode(e) ? (thumbH * 16) / 9 : (thumbH * 2) / 3;
+    const thumbW = calendarLandscapeThumb(e) ? (thumbH * 16) / 9 : (thumbH * 2) / 3;
     const dim = !e.available;
     const sub = [calendarSubtitle(e), pluginName].filter(Boolean).join('  ·  ');
     const poster = e.item?.posterUrl ?? '';
