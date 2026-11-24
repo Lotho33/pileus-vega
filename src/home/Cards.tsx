@@ -114,6 +114,13 @@ export const PosterCard = memo(
         ) : p.card.subtype ? (
           <Text style={[styles.pill, styles.subtype]}>{p.card.subtype}</Text>
         ) : null}
+        {p.card.flag ? (
+          <View style={styles.flagWrap}>
+            <Text style={styles.flag} numberOfLines={1}>
+              {p.card.flag}
+            </Text>
+          </View>
+        ) : null}
       </View>
     </Pressable>
   );
@@ -390,4 +397,18 @@ const styles = scaledStyles({
     letterSpacing: 0.6,
   },
   subtype: {left: 16, backgroundColor: 'rgba(167,139,250,0.9)'},
+  // card_badge.dart: a strip at the bottom centre (the top corners hold
+  // the type and language pills).
+  flagWrap: {position: 'absolute', left: 8, right: 8, bottom: 0, alignItems: 'center'},
+  flag: {
+    paddingHorizontal: 18,
+    paddingVertical: 6,
+    borderTopLeftRadius: 9,
+    borderTopRightRadius: 9,
+    overflow: 'hidden',
+    backgroundColor: colors.primary,
+    color: '#fff',
+    fontSize: 22,
+    fontWeight: '700',
+  },
 });

@@ -23,6 +23,7 @@ import {cachedCwHero, fetchCwHero} from './cwHero';
 import {createHeroStore, HeroFromStore, heroImageUrls} from './Hero';
 import {homeRowLayout, HomeLayout} from './layout';
 import {CardModel, CardVariant, catalogCard, cwCard, variantFor} from './model';
+import {catalogItemRank, isRankedCatalog, RANKED_MAX_ITEMS, rankFor} from '../core/ranking';
 import {SectionHeader} from './SectionHeader';
 
 interface CatalogState {
@@ -200,12 +201,19 @@ export function PluginHome({
         const r = await mycelium.getCatalog(plugin.pluginId, def.id, 1);
         const variant = variantFor(def);
         const seen = new Set<string>();
-        const cards = r.items
+        let cards = r.items
           .map(i => catalogCard(plugin.pluginId, i, variant, def.disableHeroBackground))
           .filter(c => !seen.has(c.key) && !!seen.add(c.key));
+        // A Top 10: the first RANKED_MAX_ITEMS, numbered, never more pages.
+        const ranked = isRankedCatalog(def);
+        if (ranked) {
+          cards = cards
+            .slice(0, RANKED_MAX_ITEMS)
+            .map((c, k) => ({...c, rank: rankFor(c.open.item ? catalogItemRank(c.open.item) : 0, k)}));
+        }
         setState(s => ({
           ...s,
-          [def.id]: firstPage(cards, {hasMore: r.hasMore}),
+          [def.id]: firstPage(cards, {hasMore: !ranked && r.hasMore}),
         }));
         if (r.items.some(i => logoPending(i.logoUrl, i.logoMeta))) {
           rereadForLogoMeta(def);
@@ -244,7 +252,16 @@ export function PluginHome({
           if (!cur || cur.loading || cur.page !== 1) {
             return st;
           }
-          return {...st, [def.id]: {...cur, cards: cur.cards.map(c => fresh.get(c.key) ?? c)}};
+          return {
+            ...st,
+            [def.id]: {
+              ...cur,
+              cards: cur.cards.map(c => {
+                const f = fresh.get(c.key);
+                return f ? {...f, rank: c.rank} : c;
+              }),
+            },
+          };
         });
         const shown = fresh.get(heroCard.current);
         if (shown) {
@@ -565,6 +582,7 @@ export function PluginHome({
             onSettle={onSettle}
             onPressCard={i => cards[i] && onOpenItem(cards[i])}
             onLongPressCard={i => cards[i] && onCardMenu(cards[i], row?.def)}
+            ranked={isRankedCatalog(row?.def)}
             loadMore={
               row?.def &&
               row.def.type !== 'live' &&

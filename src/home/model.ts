@@ -3,6 +3,7 @@
 // (the Flutter app does the same with its SDUI CardData).
 
 import {LangBadge, languageBadges} from '../core/language';
+import {cardBadgeLabel, catalogItemBadge} from '../core/ranking';
 import {liveStartAt, liveWhenShort} from '../details/live';
 import type {CatalogDef, CatalogItem, ContinueWatchingItem, LogoMeta} from '../gen/media';
 import type {EpisodeNav} from '../player/episodes';
@@ -66,6 +67,10 @@ export interface CardModel {
   rel?: string;
   /** Film/OVA/ONA/Special/Music/Short pill, top-left on poster cards. */
   subtype?: string;
+  /** "Novità" / "Nuovo episodio" (the item's badge): a strip at the bottom of poster cards. */
+  flag?: string;
+  /** Top 10 rows: the number beside the card. */
+  rank?: number;
   hero: HeroItem;
 }
 
@@ -158,6 +163,7 @@ export function catalogCard(pluginId: string, i: CatalogItem, variant: CardVaria
     sport: e.sport_cat ?? '',
     langs: variant === 'poster' ? languageBadges(e.lang, e.subs) : [],
     subtype: variant === 'poster' ? subtypeLabel(e.subtype) : '',
+    flag: cardBadgeLabel(catalogItemBadge(i)),
     hero: {
       key: `${pluginId}:${i.id}`,
       title: i.title,

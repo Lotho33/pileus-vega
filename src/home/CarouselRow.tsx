@@ -19,12 +19,13 @@
 // the old one — both landed mid-row, and the row then slid there.
 
 import React, {forwardRef, useCallback, useEffect, useRef, useState} from 'react';
-import {ActivityIndicator, FlatList, Pressable, View} from 'react-native';
+import {ActivityIndicator, FlatList, Image, Pressable, View} from 'react-native';
 import {Text} from '../components/Text';
 import {TVFocusGuideView, useTVEventHandler} from '@amazon-devices/react-native-kepler';
 import {Icon} from '../components/Icon';
 import {focusSoon, requestFocus, SETTLE_MS} from '../core/focus';
 import {shouldLoadMore} from '../core/paging';
+import {RANK_NUMBER_WIDTH, rankedSlotWidth} from '../core/ranking';
 import * as perf from '../core/perf';
 import {LandscapeCard, LiveCard, PosterCard} from './Cards';
 import type {HomeLayout} from './layout';
@@ -71,6 +72,34 @@ interface Props {
    * failure (`failed`) nothing loads by itself and that card reads "Riprova".
    */
   loadMore?: {loading: boolean; failed: boolean; onLoad: () => void};
+  /** A Top 10: each card beside its number (card.rank); fewer fit. */
+  ranked?: boolean;
+}
+
+// The numbers beside Top 10 cards: rendered once from pileus-player's
+// RankNumber (rank_number.dart) — React Native has no outlined text.
+const RANK_IMAGES = [
+  require('../../assets/image/rank/1.png'),
+  require('../../assets/image/rank/2.png'),
+  require('../../assets/image/rank/3.png'),
+  require('../../assets/image/rank/4.png'),
+  require('../../assets/image/rank/5.png'),
+  require('../../assets/image/rank/6.png'),
+  require('../../assets/image/rank/7.png'),
+  require('../../assets/image/rank/8.png'),
+  require('../../assets/image/rank/9.png'),
+  require('../../assets/image/rank/10.png'),
+];
+
+/** A card with its number on the left, the card covering the number's right edge. */
+function RankedSlot({rank, w, h, children}: {rank: number; w: number; h: number; children: React.ReactNode}) {
+  const img = RANK_IMAGES[rank - 1];
+  return (
+    <View style={{width: rankedSlotWidth(w), height: h}}>
+      {img ? <Image source={img} style={[styles.rank, {width: Math.round(w * RANK_NUMBER_WIDTH), height: h}]} /> : null}
+      <View style={styles.rankedCard}>{children}</View>
+    </View>
+  );
 }
 
 // _LoadMoreCardView: a poster-sized placeholder with a spinner, or "Riprova".
@@ -136,7 +165,7 @@ export function CarouselRow(p: Props) {
     p.variant === 'live' ? p.L.liveW : p.variant === 'landscape' ? p.L.landscapeW : p.L.posterW,
   );
   const h = Math.round(p.variant === 'live' ? p.L.liveH : p.L.posterH);
-  const stride = w + Math.round(p.L.gap);
+  const stride = (p.ranked ? rankedSlotWidth(w) : w) + Math.round(p.L.gap);
   // Slots: the cards plus the load-more card; whole cards that fit.
   const slots = p.cards.length + (p.loadMore ? 1 : 0);
   const fit = Math.max(1, Math.floor((p.L.W - p.L.hPad * 2 + p.L.gap) / stride));
@@ -340,8 +369,8 @@ export function CarouselRow(p: Props) {
         keyExtractor={c => c.key}
         getItemLayout={getItemLayout}
         extraData={highlight}
-        renderItem={({item, index}) => (
-          <TVFocusGuideView style={[styles.cell, {width: stride}]} trapFocusLeft={index > 0} trapFocusRight>
+        renderItem={({item, index}) => {
+          const card = (
             <Card
               ref={(v: View | null) => {
                 if (v) {
@@ -381,8 +410,19 @@ export function CarouselRow(p: Props) {
               onPress={() => onPressCard(index)}
               onLongPress={p.onLongPressCard ? () => p.onLongPressCard?.(index) : undefined}
             />
-          </TVFocusGuideView>
-        )}
+          );
+          return (
+            <TVFocusGuideView style={[styles.cell, {width: stride}]} trapFocusLeft={index > 0} trapFocusRight>
+              {p.ranked ? (
+                <RankedSlot rank={item.rank ?? index + 1} w={w} h={h}>
+                  {card}
+                </RankedSlot>
+              ) : (
+                card
+              )}
+            </TVFocusGuideView>
+          );
+        }}
         ListFooterComponent={
           p.loadMore ? (
             <TVFocusGuideView style={[styles.cell, {width: stride}]} trapFocusLeft trapFocusRight>
@@ -435,6 +475,8 @@ export function captionBlock(fs: number): number {
 const styles = scaledStyles({
   wrap: {justifyContent: 'center'},
   cell: {justifyContent: 'center'},
+  rank: {position: 'absolute', left: 0, top: 0},
+  rankedCard: {position: 'absolute', right: 0, top: 0},
   more: {
     alignItems: 'center',
     justifyContent: 'center',
