@@ -178,6 +178,34 @@ export interface SetProfilePinResponse {
   pinProtected: boolean;
 }
 
+/**
+ * GetServerInfo tells a paired device how else it can reach this server.
+ * Paired devices only (it carries the server's tailnet address, which isn't
+ * handed to anyone on the LAN who asks /pileus/info). Call it on every
+ * start: the address appears when remote access is turned on and changes if
+ * the node is re-created.
+ */
+export interface GetServerInfoRequest {
+}
+
+export interface ServerInfoResponse {
+  /**
+   * Address on the operator's tailnet (the Tailscale IPv4: it works with
+   * MagicDNS off too): mycelium's own node, or a Tailscale already running on
+   * the machine; "" when there is neither. The device reaches it only while
+   * its own Tailscale app is on; it serves the same gRPC port, HTTP port and
+   * pinned TLS certificate as the LAN.
+   */
+  remoteHost: string;
+  remoteGrpcPort: number;
+  remoteHttpPort: number;
+  /**
+   * The node's MagicDNS name, e.g. "mycelium.tail1234.ts.net" ("" as above).
+   * Informational: native clients dial remote_host.
+   */
+  remoteFqdn: string;
+}
+
 function createBaseAuthorizeDeviceRequest(): AuthorizeDeviceRequest {
   return { deviceId: "", pinHash: "" };
 }
@@ -1766,6 +1794,140 @@ export const SetProfilePinResponse: MessageFns<SetProfilePinResponse> = {
     const message = createBaseSetProfilePinResponse();
     message.ok = object.ok ?? false;
     message.pinProtected = object.pinProtected ?? false;
+    return message;
+  },
+};
+
+function createBaseGetServerInfoRequest(): GetServerInfoRequest {
+  return {};
+}
+
+export const GetServerInfoRequest: MessageFns<GetServerInfoRequest> = {
+  encode(_: GetServerInfoRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): GetServerInfoRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseGetServerInfoRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  create<I extends Exact<DeepPartial<GetServerInfoRequest>, I>>(base?: I): GetServerInfoRequest {
+    return GetServerInfoRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<GetServerInfoRequest>, I>>(_: I): GetServerInfoRequest {
+    const message = createBaseGetServerInfoRequest();
+    return message;
+  },
+};
+
+function createBaseServerInfoResponse(): ServerInfoResponse {
+  return { remoteHost: "", remoteGrpcPort: 0, remoteHttpPort: 0, remoteFqdn: "" };
+}
+
+export const ServerInfoResponse: MessageFns<ServerInfoResponse> = {
+  encode(message: ServerInfoResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.remoteHost !== "") {
+      writer.uint32(10).string(message.remoteHost);
+    }
+    if (message.remoteGrpcPort !== 0) {
+      writer.uint32(16).int32(message.remoteGrpcPort);
+    }
+    if (message.remoteHttpPort !== 0) {
+      writer.uint32(24).int32(message.remoteHttpPort);
+    }
+    if (message.remoteFqdn !== "") {
+      writer.uint32(34).string(message.remoteFqdn);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ServerInfoResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseServerInfoResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.remoteHost = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 16) {
+              break;
+            }
+
+            message.remoteGrpcPort = reader.int32();
+            continue;
+          }
+          case 3: {
+            if (tag !== 24) {
+              break;
+            }
+
+            message.remoteHttpPort = reader.int32();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.remoteFqdn = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  create<I extends Exact<DeepPartial<ServerInfoResponse>, I>>(base?: I): ServerInfoResponse {
+    return ServerInfoResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ServerInfoResponse>, I>>(object: I): ServerInfoResponse {
+    const message = createBaseServerInfoResponse();
+    message.remoteHost = object.remoteHost ?? "";
+    message.remoteGrpcPort = object.remoteGrpcPort ?? 0;
+    message.remoteHttpPort = object.remoteHttpPort ?? 0;
+    message.remoteFqdn = object.remoteFqdn ?? "";
     return message;
   },
 };

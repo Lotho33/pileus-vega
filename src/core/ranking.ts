@@ -16,11 +16,9 @@ export const RANK_OVERLAP = 0.3;
 
 export const isRankedCatalog = (def: CatalogDef | undefined) => def?.styleHint === 'ranked';
 
-/** The item's `rank`: 0 until src/gen is regenerated from the 2.0.1 media.proto — then `i.rank`. */
-export const catalogItemRank = (_i: CatalogItem) => 0;
+export const catalogItemRank = (i: CatalogItem) => i.rank ?? 0;
 
-/** The item's `badge`: '' until src/gen is regenerated from the 2.0.1 media.proto — then `i.badge`. */
-export const catalogItemBadge = (_i: CatalogItem) => '';
+export const catalogItemBadge = (i: CatalogItem) => i.badge ?? '';
 
 /** The number for the item at `index` (0-based) of a ranked row. */
 export const rankFor = (rank: number, index: number) => (rank > 0 ? rank : index + 1);

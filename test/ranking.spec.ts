@@ -1,4 +1,4 @@
-import {cardBadgeLabel, isRankedCatalog, rankedSlotWidth, rankFor} from '../src/core/ranking';
+import {cardBadgeLabel, catalogItemRank, isRankedCatalog, rankedSlotWidth, rankFor} from '../src/core/ranking';
 import {catalogCard} from '../src/home/model';
 import type {CatalogDef, CatalogItem} from '../src/gen/media';
 
@@ -20,8 +20,16 @@ describe('ranking', () => {
     expect(cardBadgeLabel(undefined)).toBe('');
   });
 
-  it('cards carry no flag until the plugin sends one', () => {
-    const c = catalogCard('p', {id: 'a', title: 'A', extra: {}} as unknown as CatalogItem, 'poster');
-    expect(c.flag).toBe('');
+  it("cards show the plugin's badge", () => {
+    const card = (badge: string) =>
+      catalogCard('p', {id: 'a', title: 'A', extra: {}, badge, rank: 0} as unknown as CatalogItem, 'poster');
+    expect(card('new').flag).toBe('Novità');
+    expect(card('').flag).toBe('');
+    expect(card('hot').flag).toBe('');
+  });
+
+  it("the plugin's rank wins over the position", () => {
+    expect(catalogItemRank({rank: 4} as CatalogItem)).toBe(4);
+    expect(rankFor(catalogItemRank({rank: 0} as CatalogItem), 2)).toBe(3);
   });
 });

@@ -201,7 +201,7 @@ export function LivePopup({
               <View>
                 <Text style={[styles.note, {fontSize: 13 * k}]}>Errore: {sources.error}</Text>
                 <SourceRow
-                  src={{id: '', label: 'Riprova', quality: '', isLive: false}}
+                  src={{id: '', label: 'Riprova', quality: '', isLive: false, path: []}}
                   best={false}
                   accent={accent}
                   first={false}

@@ -104,6 +104,8 @@ export function overlayQueued(items: ContinueWatchingItem[], ops: CwQueuedOp[]):
       year: r.year ?? 0,
       seasonNumber: r.seasonNumber ?? 0,
       episodeNumber: r.episodeNumber ?? 0,
+      // Watched just now: no "new episode" left to flag.
+      badge: '',
     }));
   const seen = new Set<string>();
   const out: ContinueWatchingItem[] = [];

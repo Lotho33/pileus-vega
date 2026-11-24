@@ -41,7 +41,21 @@ export interface CatalogItem {
   /** banner_url: wide landscape image (banner-mode) */
   bannerUrl: string;
   /** Set by the core, never by plugins: see LogoMeta. */
-  logoMeta: LogoMeta | undefined;
+  logoMeta:
+    | LogoMeta
+    | undefined;
+  /**
+   * Position in a ranked catalog (style_hint "ranked"), 1-based; 0 = use the
+   * item's place in the list. Explicit because a plugin may drop items
+   * already shown in an earlier row, which shifts the places.
+   */
+  rank: number;
+  /**
+   * A label for the card. Documented values: "new" (added recently),
+   * "new_episode" (a new episode came out recently). Clients ignore values
+   * they don't know.
+   */
+  badge: string;
 }
 
 export interface CatalogItem_ExtraEntry {
@@ -214,6 +228,13 @@ export interface MovieDetails {
   logoMeta: LogoMeta | undefined;
 }
 
+export interface LatestEpisode {
+  seasonNumber: number;
+  episodeNumber: number;
+  /** ISO 8601 date, when known */
+  airDate: string;
+}
+
 export interface SeriesDetails {
   plot: string;
   year: number;
@@ -236,7 +257,14 @@ export interface SeriesDetails {
   /** transparent wordmark PNG/SVG */
   logoUrl: string;
   /** set by the core */
-  logoMeta: LogoMeta | undefined;
+  logoMeta:
+    | LogoMeta
+    | undefined;
+  /**
+   * The latest episode out (unset when the plugin doesn't say): lets the
+   * server tell a profile following the series that a new one is there.
+   */
+  latestEpisode: LatestEpisode | undefined;
 }
 
 export interface EpisodeDetails {
@@ -336,9 +364,19 @@ export interface BrowseResponse {
 
 export interface StreamSource {
   id: string;
+  /** full name, for a flat list ("Channel A · Server 2") */
   label: string;
   quality: string;
   isLive: boolean;
+  /**
+   * Where the source sits in a tree of choices, outermost first, ending with
+   * its own name: ["Channel A", "Server 2"]. Empty = a flat list. Sources
+   * sharing a prefix are siblings; the list order is the plugin's order of
+   * preference, so a client falling back after a failure tries the next
+   * source, i.e. the rest of the same group before the next one. Opaque to
+   * the server: any depth, any meaning.
+   */
+  path: string[];
 }
 
 export interface StreamsRequest {
@@ -509,6 +547,11 @@ export interface ContinueWatchingItem {
   year: number;
   seasonNumber: number;
   episodeNumber: number;
+  /**
+   * "new_episode" when the series got an episode after this profile last
+   * watched it (see GetNewEpisodes); empty otherwise.
+   */
+  badge: string;
 }
 
 export interface ContinueWatchingRequest {
@@ -890,7 +933,14 @@ export interface MyListItem {
    */
   extra: { [key: string]: string };
   /** set by the core */
-  logoMeta: LogoMeta | undefined;
+  logoMeta:
+    | LogoMeta
+    | undefined;
+  /**
+   * "new_episode" for a series with an episode out since it was added or
+   * last watched (see GetNewEpisodes); empty otherwise.
+   */
+  badge: string;
 }
 
 export interface MyListItem_ExtraEntry {
@@ -920,6 +970,38 @@ export interface SetMyListItemResponse {
   ok: boolean;
 }
 
+/**
+ * New episodes of the series this profile follows (in its list, or watched):
+ * the server checks each followed series once a day (the plugin's
+ * SeriesDetails.latest_episode) and lists the ones with an episode out after
+ * the profile last watched them — or added them, if never watched — and
+ * past where it got to. An entry stays NEW_EPISODES_DAYS (14) days, or until
+ * the profile watches that episode.
+ */
+export interface NewEpisodesRequest {
+}
+
+export interface NewEpisode {
+  pluginId: string;
+  /** media id of the series (GetDetails) */
+  seriesId: string;
+  /** series title, as stored with the list/history */
+  title: string;
+  posterUrl: string;
+  /** the latest episode out */
+  seasonNumber: number;
+  episodeNumber: number;
+  /** ISO 8601, when the plugin knows it */
+  airDate: string;
+  /** unix seconds: when the server saw it */
+  foundAt: number;
+}
+
+export interface NewEpisodesResponse {
+  /** most recent first */
+  items: NewEpisode[];
+}
+
 function createBaseCatalogItem(): CatalogItem {
   return {
     id: "",
@@ -940,6 +1022,8 @@ function createBaseCatalogItem(): CatalogItem {
     logoUrl: "",
     bannerUrl: "",
     logoMeta: undefined,
+    rank: 0,
+    badge: "",
   };
 }
 
@@ -998,6 +1082,12 @@ export const CatalogItem: MessageFns<CatalogItem> = {
     }
     if (message.logoMeta !== undefined) {
       LogoMeta.encode(message.logoMeta, writer.uint32(146).fork()).join();
+    }
+    if (message.rank !== 0) {
+      writer.uint32(152).int32(message.rank);
+    }
+    if (message.badge !== "") {
+      writer.uint32(162).string(message.badge);
     }
     return writer;
   },
@@ -1162,6 +1252,22 @@ export const CatalogItem: MessageFns<CatalogItem> = {
             message.logoMeta = LogoMeta.decode(reader, reader.uint32());
             continue;
           }
+          case 19: {
+            if (tag !== 152) {
+              break;
+            }
+
+            message.rank = reader.int32();
+            continue;
+          }
+          case 20: {
+            if (tag !== 162) {
+              break;
+            }
+
+            message.badge = reader.string();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -1207,6 +1313,8 @@ export const CatalogItem: MessageFns<CatalogItem> = {
     message.logoMeta = (object.logoMeta !== undefined && object.logoMeta !== null)
       ? LogoMeta.fromPartial(object.logoMeta)
       : undefined;
+    message.rank = object.rank ?? 0;
+    message.badge = object.badge ?? "";
     return message;
   },
 };
@@ -2814,6 +2922,85 @@ export const MovieDetails: MessageFns<MovieDetails> = {
   },
 };
 
+function createBaseLatestEpisode(): LatestEpisode {
+  return { seasonNumber: 0, episodeNumber: 0, airDate: "" };
+}
+
+export const LatestEpisode: MessageFns<LatestEpisode> = {
+  encode(message: LatestEpisode, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.seasonNumber !== 0) {
+      writer.uint32(8).int32(message.seasonNumber);
+    }
+    if (message.episodeNumber !== 0) {
+      writer.uint32(16).int32(message.episodeNumber);
+    }
+    if (message.airDate !== "") {
+      writer.uint32(26).string(message.airDate);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): LatestEpisode {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseLatestEpisode();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 8) {
+              break;
+            }
+
+            message.seasonNumber = reader.int32();
+            continue;
+          }
+          case 2: {
+            if (tag !== 16) {
+              break;
+            }
+
+            message.episodeNumber = reader.int32();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.airDate = reader.string();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  create<I extends Exact<DeepPartial<LatestEpisode>, I>>(base?: I): LatestEpisode {
+    return LatestEpisode.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<LatestEpisode>, I>>(object: I): LatestEpisode {
+    const message = createBaseLatestEpisode();
+    message.seasonNumber = object.seasonNumber ?? 0;
+    message.episodeNumber = object.episodeNumber ?? 0;
+    message.airDate = object.airDate ?? "";
+    return message;
+  },
+};
+
 function createBaseSeriesDetails(): SeriesDetails {
   return {
     plot: "",
@@ -2832,6 +3019,7 @@ function createBaseSeriesDetails(): SeriesDetails {
     seasons: [],
     logoUrl: "",
     logoMeta: undefined,
+    latestEpisode: undefined,
   };
 }
 
@@ -2884,6 +3072,9 @@ export const SeriesDetails: MessageFns<SeriesDetails> = {
     }
     if (message.logoMeta !== undefined) {
       LogoMeta.encode(message.logoMeta, writer.uint32(130).fork()).join();
+    }
+    if (message.latestEpisode !== undefined) {
+      LatestEpisode.encode(message.latestEpisode, writer.uint32(138).fork()).join();
     }
     return writer;
   },
@@ -3029,6 +3220,14 @@ export const SeriesDetails: MessageFns<SeriesDetails> = {
             message.logoMeta = LogoMeta.decode(reader, reader.uint32());
             continue;
           }
+          case 17: {
+            if (tag !== 138) {
+              break;
+            }
+
+            message.latestEpisode = LatestEpisode.decode(reader, reader.uint32());
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -3063,6 +3262,9 @@ export const SeriesDetails: MessageFns<SeriesDetails> = {
     message.logoUrl = object.logoUrl ?? "";
     message.logoMeta = (object.logoMeta !== undefined && object.logoMeta !== null)
       ? LogoMeta.fromPartial(object.logoMeta)
+      : undefined;
+    message.latestEpisode = (object.latestEpisode !== undefined && object.latestEpisode !== null)
+      ? LatestEpisode.fromPartial(object.latestEpisode)
       : undefined;
     return message;
   },
@@ -4187,7 +4389,7 @@ export const BrowseResponse: MessageFns<BrowseResponse> = {
 };
 
 function createBaseStreamSource(): StreamSource {
-  return { id: "", label: "", quality: "", isLive: false };
+  return { id: "", label: "", quality: "", isLive: false, path: [] };
 }
 
 export const StreamSource: MessageFns<StreamSource> = {
@@ -4203,6 +4405,9 @@ export const StreamSource: MessageFns<StreamSource> = {
     }
     if (message.isLive !== false) {
       writer.uint32(32).bool(message.isLive);
+    }
+    for (const v of message.path) {
+      writer.uint32(42).string(v!);
     }
     return writer;
   },
@@ -4252,6 +4457,14 @@ export const StreamSource: MessageFns<StreamSource> = {
             message.isLive = reader.bool();
             continue;
           }
+          case 5: {
+            if (tag !== 42) {
+              break;
+            }
+
+            message.path.push(reader.string());
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -4273,6 +4486,7 @@ export const StreamSource: MessageFns<StreamSource> = {
     message.label = object.label ?? "";
     message.quality = object.quality ?? "";
     message.isLive = object.isLive ?? false;
+    message.path = object.path?.map((e) => e) || [];
     return message;
   },
 };
@@ -5555,6 +5769,7 @@ function createBaseContinueWatchingItem(): ContinueWatchingItem {
     year: 0,
     seasonNumber: 0,
     episodeNumber: 0,
+    badge: "",
   };
 }
 
@@ -5604,6 +5819,9 @@ export const ContinueWatchingItem: MessageFns<ContinueWatchingItem> = {
     }
     if (message.episodeNumber !== 0) {
       writer.uint32(120).int32(message.episodeNumber);
+    }
+    if (message.badge !== "") {
+      writer.uint32(130).string(message.badge);
     }
     return writer;
   },
@@ -5741,6 +5959,14 @@ export const ContinueWatchingItem: MessageFns<ContinueWatchingItem> = {
             message.episodeNumber = reader.int32();
             continue;
           }
+          case 16: {
+            if (tag !== 130) {
+              break;
+            }
+
+            message.badge = reader.string();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -5773,6 +5999,7 @@ export const ContinueWatchingItem: MessageFns<ContinueWatchingItem> = {
     message.year = object.year ?? 0;
     message.seasonNumber = object.seasonNumber ?? 0;
     message.episodeNumber = object.episodeNumber ?? 0;
+    message.badge = object.badge ?? "";
     return message;
   },
 };
@@ -8687,6 +8914,7 @@ function createBaseMyListItem(): MyListItem {
     addedAt: 0,
     extra: {},
     logoMeta: undefined,
+    badge: "",
   };
 }
 
@@ -8727,6 +8955,9 @@ export const MyListItem: MessageFns<MyListItem> = {
     });
     if (message.logoMeta !== undefined) {
       LogoMeta.encode(message.logoMeta, writer.uint32(98).fork()).join();
+    }
+    if (message.badge !== "") {
+      writer.uint32(106).string(message.badge);
     }
     return writer;
   },
@@ -8843,6 +9074,14 @@ export const MyListItem: MessageFns<MyListItem> = {
             message.logoMeta = LogoMeta.decode(reader, reader.uint32());
             continue;
           }
+          case 13: {
+            if (tag !== 106) {
+              break;
+            }
+
+            message.badge = reader.string();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -8882,6 +9121,7 @@ export const MyListItem: MessageFns<MyListItem> = {
     message.logoMeta = (object.logoMeta !== undefined && object.logoMeta !== null)
       ? LogoMeta.fromPartial(object.logoMeta)
       : undefined;
+    message.badge = object.badge ?? "";
     return message;
   },
 };
@@ -9183,6 +9423,252 @@ export const SetMyListItemResponse: MessageFns<SetMyListItemResponse> = {
   fromPartial<I extends Exact<DeepPartial<SetMyListItemResponse>, I>>(object: I): SetMyListItemResponse {
     const message = createBaseSetMyListItemResponse();
     message.ok = object.ok ?? false;
+    return message;
+  },
+};
+
+function createBaseNewEpisodesRequest(): NewEpisodesRequest {
+  return {};
+}
+
+export const NewEpisodesRequest: MessageFns<NewEpisodesRequest> = {
+  encode(_: NewEpisodesRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): NewEpisodesRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseNewEpisodesRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  create<I extends Exact<DeepPartial<NewEpisodesRequest>, I>>(base?: I): NewEpisodesRequest {
+    return NewEpisodesRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<NewEpisodesRequest>, I>>(_: I): NewEpisodesRequest {
+    const message = createBaseNewEpisodesRequest();
+    return message;
+  },
+};
+
+function createBaseNewEpisode(): NewEpisode {
+  return {
+    pluginId: "",
+    seriesId: "",
+    title: "",
+    posterUrl: "",
+    seasonNumber: 0,
+    episodeNumber: 0,
+    airDate: "",
+    foundAt: 0,
+  };
+}
+
+export const NewEpisode: MessageFns<NewEpisode> = {
+  encode(message: NewEpisode, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.pluginId !== "") {
+      writer.uint32(10).string(message.pluginId);
+    }
+    if (message.seriesId !== "") {
+      writer.uint32(18).string(message.seriesId);
+    }
+    if (message.title !== "") {
+      writer.uint32(26).string(message.title);
+    }
+    if (message.posterUrl !== "") {
+      writer.uint32(34).string(message.posterUrl);
+    }
+    if (message.seasonNumber !== 0) {
+      writer.uint32(40).int32(message.seasonNumber);
+    }
+    if (message.episodeNumber !== 0) {
+      writer.uint32(48).int32(message.episodeNumber);
+    }
+    if (message.airDate !== "") {
+      writer.uint32(58).string(message.airDate);
+    }
+    if (message.foundAt !== 0) {
+      writer.uint32(64).int64(message.foundAt);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): NewEpisode {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseNewEpisode();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.pluginId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.seriesId = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.title = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 34) {
+              break;
+            }
+
+            message.posterUrl = reader.string();
+            continue;
+          }
+          case 5: {
+            if (tag !== 40) {
+              break;
+            }
+
+            message.seasonNumber = reader.int32();
+            continue;
+          }
+          case 6: {
+            if (tag !== 48) {
+              break;
+            }
+
+            message.episodeNumber = reader.int32();
+            continue;
+          }
+          case 7: {
+            if (tag !== 58) {
+              break;
+            }
+
+            message.airDate = reader.string();
+            continue;
+          }
+          case 8: {
+            if (tag !== 64) {
+              break;
+            }
+
+            message.foundAt = longToNumber(reader.int64());
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  create<I extends Exact<DeepPartial<NewEpisode>, I>>(base?: I): NewEpisode {
+    return NewEpisode.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<NewEpisode>, I>>(object: I): NewEpisode {
+    const message = createBaseNewEpisode();
+    message.pluginId = object.pluginId ?? "";
+    message.seriesId = object.seriesId ?? "";
+    message.title = object.title ?? "";
+    message.posterUrl = object.posterUrl ?? "";
+    message.seasonNumber = object.seasonNumber ?? 0;
+    message.episodeNumber = object.episodeNumber ?? 0;
+    message.airDate = object.airDate ?? "";
+    message.foundAt = object.foundAt ?? 0;
+    return message;
+  },
+};
+
+function createBaseNewEpisodesResponse(): NewEpisodesResponse {
+  return { items: [] };
+}
+
+export const NewEpisodesResponse: MessageFns<NewEpisodesResponse> = {
+  encode(message: NewEpisodesResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    for (const v of message.items) {
+      NewEpisode.encode(v!, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): NewEpisodesResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseNewEpisodesResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.items.push(NewEpisode.decode(reader, reader.uint32()));
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  create<I extends Exact<DeepPartial<NewEpisodesResponse>, I>>(base?: I): NewEpisodesResponse {
+    return NewEpisodesResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<NewEpisodesResponse>, I>>(object: I): NewEpisodesResponse {
+    const message = createBaseNewEpisodesResponse();
+    message.items = object.items?.map((e) => NewEpisode.fromPartial(e)) || [];
     return message;
   },
 };
