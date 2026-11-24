@@ -69,6 +69,7 @@ import {PLAYBACK_SPEEDS, playbackSpeedLabel} from './speed';
 import {getViewMode, setViewMode, surfaceBox, ViewMode, VIEW_MODES} from './viewMode';
 import {LiveFailover} from './liveFailover';
 import {advanceContinueWatching, isEpisodeOfSeries} from './cwAdvance';
+import {StillWatchingGuard, stillWatchingMessage} from './stillWatching';
 import {InfoPanel} from './InfoPanel';
 import {loadPlayerInfo, PlayerInfo, playerInfoBase} from './playerInfo';
 
@@ -222,6 +223,10 @@ export function PlayerScreen({
   const [req, setReq] = useState(request);
   const [phase, setPhase] = useState<Phase>({kind: 'resolving', message: ''});
   const [paused, setPaused] = useState(false);
+  // "Stai ancora guardando?" up (stillWatching.ts): paused at an episode
+  // boundary, waiting for an answer.
+  const [asking, setAsking] = useState(false);
+  const stillWatching = useRef(new StillWatchingGuard());
   const [buffering, setBuffering] = useState(false);
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -843,9 +848,9 @@ export function PlayerScreen({
     phase.kind === 'playing' && !req.isLive && hasNext && !switching && duration > MIN_DURATION_FOR_END_LOGIC_SEC;
   const tick = endLogic ? nextEpisodeTick(position, duration, skips, bannerDismissed) : null;
   const bannerSecs = tick?.bannerSecs ?? null;
-  const showBanner = bannerSecs !== null;
+  const showBanner = bannerSecs !== null && !asking;
   // The countdown already offers "Vai subito": no second button on the ending.
-  const showSkip = showSkipButton && !(outroToNext && showBanner);
+  const showSkip = showSkipButton && !asking && !(outroToNext && showBanner);
   const nextEp = req.nav && hasNext ? req.nav.episodes[req.nav.index + 1] : undefined;
 
   // The prompt holding focus while the overlay is hidden.
@@ -871,13 +876,26 @@ export function PlayerScreen({
   useEffect(() => {
     if (advance && !transitioning.current && !autoAdvanced.current) {
       autoAdvanced.current = true;
-      goToEpisode(1);
+      if (stillWatching.current.shouldAsk) {
+        engine.current?.pause();
+        setAsking(true);
+      } else {
+        stillWatching.current.noteAutoAdvance();
+        goToEpisode(1);
+      }
     }
   }, [advance, goToEpisode]);
 
   // Held ←/→ with the overlay hidden: preview the target, seek on release.
   const held = useRef({dir: 0, count: 0, target: 0});
   useTVEventHandler(evt => {
+    if (evt.eventKeyAction !== 1) {
+      stillWatching.current.noteInput();
+    }
+    // The prompt's own buttons take the keys.
+    if (asking) {
+      return;
+    }
     // The remote's Info (or Menu) key opens the info panel; the panel
     // handles its own keys while open.
     const key = evt.eventType.toLowerCase();
@@ -939,7 +957,10 @@ export function PlayerScreen({
 
   useEffect(() => {
     const sub = keplerBack.addEventListener('hardwareBackPress', () => {
-      if (info) {
+      stillWatching.current.noteInput();
+      if (asking) {
+        onExit();
+      } else if (info) {
         setInfo(null);
         bumpOverlay();
       } else if (panel && panel !== 'master') {
@@ -955,7 +976,7 @@ export function PlayerScreen({
       return true;
     });
     return () => sub.remove();
-  }, [panel, info, overlay, phase.kind, paused, onExit, keplerBack, bumpOverlay]);
+  }, [panel, info, overlay, phase.kind, paused, asking, onExit, keplerBack, bumpOverlay]);
 
   function openInfo() {
     const r = reqRef.current;
@@ -1220,7 +1241,8 @@ export function PlayerScreen({
     !panel &&
     !(phase.kind === 'playing' && (overlay || promptKey)) &&
     phase.kind !== 'error' &&
-    phase.kind !== 'elsewhere';
+    phase.kind !== 'elsewhere' &&
+    !asking;
   const promptBottom = px(overlay ? 300 : 119);
 
   // Trapped as a whole: the details page below keeps its focusables, and
@@ -1461,6 +1483,26 @@ export function PlayerScreen({
             )}
           </ScrollView>
         </TVFocusGuideView>
+      ) : null}
+
+      {asking ? (
+        <View style={styles.dialogScrim}>
+          <View style={styles.dialog}>
+            <Text style={styles.dialogTitle}>{stillWatchingMessage(req.showTitle)}</Text>
+            <View style={styles.dialogActions}>
+              <FocusButton
+                label="Continua"
+                primary
+                hasTVPreferredFocus
+                onPress={() => {
+                  setAsking(false);
+                  goToEpisode(1);
+                }}
+              />
+              <FocusButton label="Esci" onPress={onExit} />
+            </View>
+          </View>
+        </View>
       ) : null}
 
       {phase.kind === 'error' || phase.kind === 'elsewhere' ? (
