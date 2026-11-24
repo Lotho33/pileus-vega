@@ -320,6 +320,16 @@ export class Mycelium {
     return r.items;
   }
 
+  /** The release calendar between two dates ("YYYY-MM-DD", inclusive), every plugin merged. */
+  getCalendar(from: string, to: string, followedOnly: boolean) {
+    return this.rpc.unary(M + 'GetCalendar', media.CalendarRequest, media.CalendarResponse, {
+      from,
+      to,
+      pluginId: '',
+      followedOnly,
+    });
+  }
+
   /** La mia lista of the active profile; '' = every plugin, newest first. */
   async getMyList(pluginId = '') {
     const r = await this.rpc.unary(M + 'GetMyList', media.MyListRequest, media.MyListResponse, {pluginId});

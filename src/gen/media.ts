@@ -1002,6 +1002,47 @@ export interface NewEpisodesResponse {
   items: NewEpisode[];
 }
 
+/**
+ * Release calendar: what comes out between two dates, from every plugin with
+ * a `calendar` entrypoint, merged by the server. A date is a plan, not a
+ * promise: `available` says whether the plugin already has the title.
+ */
+export interface CalendarRequest {
+  /** "YYYY-MM-DD", inclusive; empty = today */
+  from: string;
+  /** "YYYY-MM-DD", inclusive; empty = from + 6 days; at most 31 days */
+  to: string;
+  /** empty = every plugin */
+  pluginId: string;
+  /** only the series this profile follows */
+  followedOnly: boolean;
+}
+
+export interface CalendarEntry {
+  pluginId: string;
+  /** the title (an episode: season/episode numbers set) */
+  item:
+    | CatalogItem
+    | undefined;
+  /** RFC 3339 with offset; midnight when all_day */
+  releaseAt: string;
+  /** only the date is known */
+  allDay: boolean;
+  /** already in the plugin's catalog (playable) */
+  available: boolean;
+  /** media id of the series, for an episode; else empty */
+  seriesId: string;
+  /** this profile follows the series (list or history) */
+  followed: boolean;
+}
+
+export interface CalendarResponse {
+  /** by release time */
+  entries: CalendarEntry[];
+  /** plugins that didn't answer */
+  failedPlugins: string[];
+}
+
 function createBaseCatalogItem(): CatalogItem {
   return {
     id: "",
@@ -9669,6 +9710,301 @@ export const NewEpisodesResponse: MessageFns<NewEpisodesResponse> = {
   fromPartial<I extends Exact<DeepPartial<NewEpisodesResponse>, I>>(object: I): NewEpisodesResponse {
     const message = createBaseNewEpisodesResponse();
     message.items = object.items?.map((e) => NewEpisode.fromPartial(e)) || [];
+    return message;
+  },
+};
+
+function createBaseCalendarRequest(): CalendarRequest {
+  return { from: "", to: "", pluginId: "", followedOnly: false };
+}
+
+export const CalendarRequest: MessageFns<CalendarRequest> = {
+  encode(message: CalendarRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.from !== "") {
+      writer.uint32(10).string(message.from);
+    }
+    if (message.to !== "") {
+      writer.uint32(18).string(message.to);
+    }
+    if (message.pluginId !== "") {
+      writer.uint32(26).string(message.pluginId);
+    }
+    if (message.followedOnly !== false) {
+      writer.uint32(32).bool(message.followedOnly);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): CalendarRequest {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseCalendarRequest();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.from = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.to = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.pluginId = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 32) {
+              break;
+            }
+
+            message.followedOnly = reader.bool();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  create<I extends Exact<DeepPartial<CalendarRequest>, I>>(base?: I): CalendarRequest {
+    return CalendarRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<CalendarRequest>, I>>(object: I): CalendarRequest {
+    const message = createBaseCalendarRequest();
+    message.from = object.from ?? "";
+    message.to = object.to ?? "";
+    message.pluginId = object.pluginId ?? "";
+    message.followedOnly = object.followedOnly ?? false;
+    return message;
+  },
+};
+
+function createBaseCalendarEntry(): CalendarEntry {
+  return {
+    pluginId: "",
+    item: undefined,
+    releaseAt: "",
+    allDay: false,
+    available: false,
+    seriesId: "",
+    followed: false,
+  };
+}
+
+export const CalendarEntry: MessageFns<CalendarEntry> = {
+  encode(message: CalendarEntry, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.pluginId !== "") {
+      writer.uint32(10).string(message.pluginId);
+    }
+    if (message.item !== undefined) {
+      CatalogItem.encode(message.item, writer.uint32(18).fork()).join();
+    }
+    if (message.releaseAt !== "") {
+      writer.uint32(26).string(message.releaseAt);
+    }
+    if (message.allDay !== false) {
+      writer.uint32(32).bool(message.allDay);
+    }
+    if (message.available !== false) {
+      writer.uint32(40).bool(message.available);
+    }
+    if (message.seriesId !== "") {
+      writer.uint32(50).string(message.seriesId);
+    }
+    if (message.followed !== false) {
+      writer.uint32(56).bool(message.followed);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): CalendarEntry {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseCalendarEntry();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.pluginId = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.item = CatalogItem.decode(reader, reader.uint32());
+            continue;
+          }
+          case 3: {
+            if (tag !== 26) {
+              break;
+            }
+
+            message.releaseAt = reader.string();
+            continue;
+          }
+          case 4: {
+            if (tag !== 32) {
+              break;
+            }
+
+            message.allDay = reader.bool();
+            continue;
+          }
+          case 5: {
+            if (tag !== 40) {
+              break;
+            }
+
+            message.available = reader.bool();
+            continue;
+          }
+          case 6: {
+            if (tag !== 50) {
+              break;
+            }
+
+            message.seriesId = reader.string();
+            continue;
+          }
+          case 7: {
+            if (tag !== 56) {
+              break;
+            }
+
+            message.followed = reader.bool();
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  create<I extends Exact<DeepPartial<CalendarEntry>, I>>(base?: I): CalendarEntry {
+    return CalendarEntry.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<CalendarEntry>, I>>(object: I): CalendarEntry {
+    const message = createBaseCalendarEntry();
+    message.pluginId = object.pluginId ?? "";
+    message.item = (object.item !== undefined && object.item !== null)
+      ? CatalogItem.fromPartial(object.item)
+      : undefined;
+    message.releaseAt = object.releaseAt ?? "";
+    message.allDay = object.allDay ?? false;
+    message.available = object.available ?? false;
+    message.seriesId = object.seriesId ?? "";
+    message.followed = object.followed ?? false;
+    return message;
+  },
+};
+
+function createBaseCalendarResponse(): CalendarResponse {
+  return { entries: [], failedPlugins: [] };
+}
+
+export const CalendarResponse: MessageFns<CalendarResponse> = {
+  encode(message: CalendarResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    for (const v of message.entries) {
+      CalendarEntry.encode(v!, writer.uint32(10).fork()).join();
+    }
+    for (const v of message.failedPlugins) {
+      writer.uint32(18).string(v!);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): CalendarResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
+    if (previousRecursionDepth >= 100) {
+      throw new globalThis.Error("protobuf decode recursion limit exceeded");
+    }
+    (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
+    try {
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBaseCalendarResponse();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
+
+            message.entries.push(CalendarEntry.decode(reader, reader.uint32()));
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
+
+            message.failedPlugins.push(reader.string());
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    } finally {
+      (reader as any).__tsProtoDecodeDepth = previousRecursionDepth;
+    }
+  },
+
+  create<I extends Exact<DeepPartial<CalendarResponse>, I>>(base?: I): CalendarResponse {
+    return CalendarResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<CalendarResponse>, I>>(object: I): CalendarResponse {
+    const message = createBaseCalendarResponse();
+    message.entries = object.entries?.map((e) => CalendarEntry.fromPartial(e)) || [];
+    message.failedPlugins = object.failedPlugins?.map((e) => e) || [];
     return message;
   },
 };

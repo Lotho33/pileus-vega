@@ -21,6 +21,7 @@ import {canSave, myList, myListItemFrom, myListMessage, useMyList} from '../core
 import {applyCatalogPrefs, applyPluginPrefs, isPluginReady, parsePluginPrefs} from '../core/prefs';
 import type {CatalogDef, ContinueWatchingItem, PluginInfo} from '../gen/media';
 import {useHomeLayout} from '../home/layout';
+import {CalendarScreen} from '../home/CalendarScreen';
 import {MyListScreen} from '../home/MyListScreen';
 import {PluginHome} from '../home/PluginHome';
 import type {CardModel, OpenTarget} from '../home/model';
@@ -39,6 +40,7 @@ const EXIT_CONFIRM_MS = 2000;
 // engine picks meanwhile is ignored by the row (useFocusGate).
 const REFOCUS_AFTER_HIDE_MS = 50;
 const MY_LIST = 'La mia lista';
+const CALENDAR = 'Calendario';
 const SETTINGS = 'Impostazioni';
 
 function NotReady({plugin}: {plugin: PluginInfo}) {
@@ -80,7 +82,10 @@ export function HomeScreen() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   /** The nav reopens on this action (back from settings or La mia lista). */
   const [backTo, setBackTo] = useState('');
-  const [myListOpen, setMyListOpen] = useState(false);
+  // A full page over the home, opened from the side nav (back there on close).
+  const [page, setPage] = useState<'mylist' | 'calendar' | null>(null);
+  const pageOpen = page !== null;
+  const myListOpen = page === 'mylist';
   const [pageEmpty, setPageEmpty] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [fullSearch, setFullSearch] = useState<{query: string} | null>(null);
@@ -181,12 +186,12 @@ export function HomeScreen() {
     } else if (stack.length) {
       setPlayer(null);
       setDetailsRefocus(t => t + 1);
-    } else if (fullSearch || myListOpen) {
+    } else if (fullSearch || pageOpen) {
       setPlayer(null);
     } else {
       refocusRow(true, () => setPlayer(null));
     }
-  }, [settingsOpen, stack.length, fullSearch, myListOpen, refocusRow, refreshCw]);
+  }, [settingsOpen, stack.length, fullSearch, pageOpen, refocusRow, refreshCw]);
 
   const closeLive = useCallback(() => {
     if (stack.length) {
@@ -194,21 +199,21 @@ export function HomeScreen() {
       // uncovered (only on a refocus token), like after the player.
       setLive(null);
       setDetailsRefocus(t => t + 1);
-    } else if (fullSearch || myListOpen) {
+    } else if (fullSearch || pageOpen) {
       setLive(null);
     } else {
       refocusRow(true, () => setLive(null));
     }
-  }, [stack.length, fullSearch, myListOpen, refocusRow]);
+  }, [stack.length, fullSearch, pageOpen, refocusRow]);
 
   // Over La mia lista the page puts focus back itself (it was "covered").
   const closeMenu = useCallback(
-    () => (myListOpen ? setMenu(null) : refocusRow(true, () => setMenu(null))),
-    [myListOpen, refocusRow],
+    () => (pageOpen ? setMenu(null) : refocusRow(true, () => setMenu(null))),
+    [pageOpen, refocusRow],
   );
   const closeInfo = useCallback(
-    () => (myListOpen ? setInfo(null) : refocusRow(true, () => setInfo(null))),
-    [myListOpen, refocusRow],
+    () => (pageOpen ? setInfo(null) : refocusRow(true, () => setInfo(null))),
+    [pageOpen, refocusRow],
   );
 
   const toggleMyList = useCallback((card: CardModel) => {
@@ -221,11 +226,20 @@ export function HomeScreen() {
 
   const openMyList = useCallback(() => {
     setNavOpen(false);
-    setMyListOpen(true);
+    setPage('mylist');
   }, []);
   const closeMyList = useCallback(() => {
-    setMyListOpen(false);
+    setPage(null);
     setBackTo(MY_LIST);
+    setNavOpen(true);
+  }, []);
+  const openCalendar = useCallback(() => {
+    setNavOpen(false);
+    setPage('calendar');
+  }, []);
+  const closeCalendar = useCallback(() => {
+    setPage(null);
+    setBackTo(CALENDAR);
     setNavOpen(true);
   }, []);
 
@@ -362,12 +376,12 @@ export function HomeScreen() {
 
   const popDetails = useCallback(() => {
     const last = stack.length === 1;
-    if (last && !fullSearch && !myListOpen) {
+    if (last && !fullSearch && !pageOpen) {
       refocusRow(true, () => setStack(st => st.slice(0, -1)));
     } else {
       setStack(st => st.slice(0, -1));
     }
-  }, [stack.length, fullSearch, myListOpen, refocusRow]);
+  }, [stack.length, fullSearch, pageOpen, refocusRow]);
 
   // A server without La mia lista: its page can't stay open.
   useEffect(() => {
@@ -377,6 +391,10 @@ export function HomeScreen() {
   }, [myListSupported, myListOpen, closeMyList]);
 
   const plugin = plugins?.length ? plugins[Math.min(selected, plugins.length - 1)] : undefined;
+  const pluginNames = useMemo(
+    () => Object.fromEntries((plugins ?? []).map(p => [p.pluginId, p.name || p.pluginId])),
+    [plugins],
+  );
   const ready = plugin ? isPluginReady(plugin) : false;
   // A not-ready plugin has nothing behind the nav to go back to.
   const canCloseNav = navOpen && ready;
@@ -387,7 +405,7 @@ export function HomeScreen() {
   // newer, so it steps aside while they're up).
   useEffect(() => {
     const sub = keplerBack.addEventListener('hardwareBackPress', () => {
-      if (settingsOpen || fullSearch || myListOpen || stack.length || player || live || menu || info) {
+      if (settingsOpen || fullSearch || pageOpen || stack.length || player || live || menu || info) {
         return false;
       }
       if (searchOpen) {
@@ -417,7 +435,7 @@ export function HomeScreen() {
   }, [
     settingsOpen,
     fullSearch,
-    myListOpen,
+    pageOpen,
     stack.length,
     player,
     live,
@@ -442,7 +460,7 @@ export function HomeScreen() {
 
   // → closes the nav; ← at its edge does nothing (focus is trapped in it).
   useTVEventHandler(evt => {
-    if (!canCloseNav || settingsOpen || myListOpen || evt.eventKeyAction === 1) {
+    if (!canCloseNav || settingsOpen || pageOpen || evt.eventKeyAction === 1) {
       return;
     }
     if (evt.eventType === 'right') {
@@ -487,7 +505,7 @@ export function HomeScreen() {
           inactive={
             navOpen ||
             settingsOpen ||
-            myListOpen ||
+            pageOpen ||
             searchOpen ||
             !!fullSearch ||
             stack.length > 0 ||
@@ -521,8 +539,8 @@ export function HomeScreen() {
         />
       ) : null}
       {/* Same plain scrim as home_view.dart while the nav is out. */}
-      {navOpen && ready && !settingsOpen && !myListOpen ? <View style={styles.scrim} pointerEvents="none" /> : null}
-      {(navOpen || !ready) && !settingsOpen && !myListOpen ? (
+      {navOpen && ready && !settingsOpen && !pageOpen ? <View style={styles.scrim} pointerEvents="none" /> : null}
+      {(navOpen || !ready) && !settingsOpen && !pageOpen ? (
         <PluginNav
           plugins={plugins}
           selected={selected}
@@ -534,6 +552,7 @@ export function HomeScreen() {
           }}
           actions={[
             ...(myListSupported ? [{label: MY_LIST, icon: 'bookmark' as const, onPress: openMyList}] : []),
+            {label: CALENDAR, icon: 'calendar', onPress: openCalendar},
             {label: SETTINGS, icon: 'settings', onPress: () => setSettingsOpen(true)},
           ]}
         />
@@ -555,6 +574,16 @@ export function HomeScreen() {
           onClose={closeMyList}
           onOpenItem={openItem}
           onCardMenu={card => openMenu(card)}
+        />
+      ) : null}
+      {page === 'calendar' ? (
+        <CalendarScreen
+          L={L}
+          covered={stack.length > 0 || !!player || !!live || !!menu || !!info}
+          pluginNames={pluginNames}
+          onClose={closeCalendar}
+          onOpenItem={openItem}
+          onNotice={setToast}
         />
       ) : null}
       {fullSearch && ready ? (
