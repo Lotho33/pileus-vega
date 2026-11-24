@@ -24,6 +24,7 @@ import {createHeroStore, HeroFromStore, heroImageUrls} from './Hero';
 import {homeRowLayout, HomeLayout} from './layout';
 import {CardModel, CardVariant, catalogCard, cwCard, variantFor} from './model';
 import {catalogItemRank, isRankedCatalog, RANKED_MAX_ITEMS, rankFor} from '../core/ranking';
+import {isNewEpisodesCatalog, newEpisodes, withNewEpisodesRow} from '../core/newEpisodes';
 import {SectionHeader} from './SectionHeader';
 
 interface CatalogState {
@@ -102,7 +103,7 @@ function EmptyPage({active, onRetry}: {active: boolean; onRetry: () => void}) {
 
 export function PluginHome({
   plugin,
-  catalogs,
+  catalogs: pluginCatalogs,
   cw,
   L,
   navOpen,
@@ -135,6 +136,8 @@ export function PluginHome({
   /** The page turned into (or out of) "Nessun contenuto". */
   onEmptyChange?: (empty: boolean) => void;
 }) {
+  // The plugin's rows, with "Nuovi episodi" second (core/newEpisodes.ts).
+  const catalogs = useMemo(() => withNewEpisodesRow(pluginCatalogs), [pluginCatalogs]);
   const [state, setState] = useState<Record<string, CatalogState>>({});
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -198,7 +201,10 @@ export function PluginHome({
       }
       setState(s => ({...s, [def.id]: firstPage([], {loading: true})}));
       try {
-        const r = await mycelium.getCatalog(plugin.pluginId, def.id, 1);
+        // "Nuovi episodi" (core/newEpisodes.ts) comes from GetNewEpisodes.
+        const r = isNewEpisodesCatalog(def.id)
+          ? {items: await newEpisodes.forPlugin(plugin.pluginId), hasMore: false}
+          : await mycelium.getCatalog(plugin.pluginId, def.id, 1);
         const variant = variantFor(def);
         const seen = new Set<string>();
         let cards = r.items

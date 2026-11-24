@@ -229,6 +229,8 @@ export function cwCard(i: ContinueWatchingItem): CardModel {
     progressLabel:
       i.totalTime > 0 ? `${clock(i.progressTime)} · ${remaining(i.totalTime - i.progressTime)}` : '',
     badge: '',
+    // "Nuovo episodio": the series got one since this profile last watched it.
+    flag: cardBadgeLabel(i.badge),
     hero: {
       key: `cw:${i.pluginId}:${i.mediaId}`,
       // The hero reads like the show's own page, never the episode's.

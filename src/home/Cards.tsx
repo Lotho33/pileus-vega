@@ -185,6 +185,14 @@ export const LandscapeCard = memo(
         ) : (
           <Placeholder title={c.title} />
         )}
+        {/* "Nuovo episodio" at the top: the bottom holds title and progress. */}
+        {c.flag ? (
+          <View style={styles.flagTopWrap}>
+            <Text style={[styles.flag, styles.flagTop]} numberOfLines={1}>
+              {c.flag}
+            </Text>
+          </View>
+        ) : null}
         <View style={styles.caption}>
           <Gradient name="captionFade" direction="toBottom" />
           <View style={[styles.captionBody, c.progress > 0 && styles.captionWithBar]}>
@@ -400,6 +408,8 @@ const styles = scaledStyles({
   // card_badge.dart: a strip at the bottom centre (the top corners hold
   // the type and language pills).
   flagWrap: {position: 'absolute', left: 8, right: 8, bottom: 0, alignItems: 'center'},
+  flagTopWrap: {position: 'absolute', left: 8, right: 8, top: 0, alignItems: 'center', zIndex: 1},
+  flagTop: {borderTopLeftRadius: 0, borderTopRightRadius: 0, borderBottomLeftRadius: 9, borderBottomRightRadius: 9},
   flag: {
     paddingHorizontal: 18,
     paddingVertical: 6,

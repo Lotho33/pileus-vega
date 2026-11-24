@@ -314,6 +314,12 @@ export class Mycelium {
     );
   }
 
+  /** New episodes of the series this profile follows, every plugin, newest first. */
+  async getNewEpisodes() {
+    const r = await this.rpc.unary(M + 'GetNewEpisodes', media.NewEpisodesRequest, media.NewEpisodesResponse, {});
+    return r.items;
+  }
+
   /** La mia lista of the active profile; '' = every plugin, newest first. */
   async getMyList(pluginId = '') {
     const r = await this.rpc.unary(M + 'GetMyList', media.MyListRequest, media.MyListResponse, {pluginId});

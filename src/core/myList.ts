@@ -241,6 +241,7 @@ export function myListCatalogItem(i: MyListItem): CatalogItem {
     logoUrl: i.logoUrl,
     logoMeta: i.logoMeta,
     isDir: i.mediaType === 'series',
+    badge: i.badge,
     extra,
   });
 }
