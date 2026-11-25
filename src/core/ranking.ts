@@ -11,8 +11,8 @@ import type {CatalogDef, CatalogItem} from '../gen/media';
 export const RANKED_MAX_ITEMS = 10;
 
 /** How wide the number beside a card is (× card width); the card covers RANK_OVERLAP of it. */
-export const RANK_NUMBER_WIDTH = 0.82;
-export const RANK_OVERLAP = 0.3;
+export const RANK_NUMBER_WIDTH = 0.92;
+export const RANK_OVERLAP = 0.22;
 
 export const isRankedCatalog = (def: CatalogDef | undefined) => def?.styleHint === 'ranked';
 
