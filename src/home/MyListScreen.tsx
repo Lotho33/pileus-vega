@@ -12,7 +12,7 @@ import {FocusButton} from '../components/FocusButton';
 import {focusSoon} from '../core/focus';
 import {myListCatalogItem, useMyList} from '../core/myList';
 import * as perf from '../core/perf';
-import {BackButton} from '../details/common';
+import {SquareBackButton} from '../components/SquareBackButton';
 import {colors, scaledStyles} from '../theme';
 import type {HomeLayout} from './layout';
 import {CardModel, catalogCard} from './model';
@@ -81,7 +81,7 @@ export function MyListScreen({
   return (
     <TVFocusGuideView style={styles.root} trapFocusLeft trapFocusRight trapFocusUp trapFocusDown>
       <View style={[styles.header, {paddingHorizontal: hPad, paddingTop: vPad, marginBottom: H * 0.014}]}>
-        <BackButton s={H / 1080} onPress={onClose} />
+        <SquareBackButton s={H / 1080} onPress={onClose} />
         <Text style={[styles.heading, {fontSize: H * 0.026, marginLeft: W * 0.01}]} numberOfLines={1}>
           La mia lista
         </Text>

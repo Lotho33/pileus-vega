@@ -26,7 +26,7 @@ import {focusSoon} from '../core/focus';
 import {GrpcError, GrpcStatus} from '../core/grpcWeb';
 import {posterSrc} from '../core/images';
 import * as perf from '../core/perf';
-import {BackButton} from '../details/common';
+import {SquareBackButton} from '../components/SquareBackButton';
 import type {CalendarEntry, CalendarResponse} from '../gen/media';
 import {errorText} from '../state/auth';
 import {colors, scaledStyles} from '../theme';
@@ -141,7 +141,7 @@ export function CalendarScreen({
   return (
     <TVFocusGuideView style={styles.root} trapFocusLeft trapFocusRight trapFocusUp trapFocusDown>
       <View style={[styles.header, {paddingHorizontal: hPad, paddingTop: vPad}]}>
-        <BackButton s={s} onPress={onClose} />
+        <SquareBackButton s={s} onPress={onClose} />
         <Text style={[styles.heading, {fontSize: H * 0.026, marginLeft: W * 0.01}]} numberOfLines={1}>
           Calendario
         </Text>
@@ -264,7 +264,12 @@ const Row = React.forwardRef<View, {s: number; entry: CalendarEntry; pluginName:
           {padding: 10 * s, borderRadius: 12 * s, marginBottom: 10 * s},
           focused && styles.rowFocused,
         ]}>
-        <Text style={[styles.time, {width: 90 * s, fontSize: 24 * s}]}>{calendarTimeLabel(e)}</Text>
+        {/* No announced hour: "In giornata" instead of an empty time. */}
+        {calendarTimeLabel(e) ? (
+          <Text style={[styles.time, {width: 90 * s, fontSize: 24 * s}]}>{calendarTimeLabel(e)}</Text>
+        ) : (
+          <Text style={[styles.allDay, {width: 90 * s, fontSize: 18 * s, lineHeight: 21 * s}]}>{'In\ngiornata'}</Text>
+        )}
         <View style={[styles.thumb, {width: thumbW, height: thumbH, borderRadius: 8 * s}]}>
           {poster ? (
             <Image
@@ -330,6 +335,7 @@ const styles = scaledStyles({
   },
   rowFocused: {backgroundColor: 'rgba(255,255,255,0.10)', borderColor: colors.primary},
   time: {color: colors.textMid, fontWeight: '600'},
+  allDay: {color: colors.textLow, fontWeight: '600'},
   thumb: {overflow: 'hidden', backgroundColor: colors.surface2},
   dim: {opacity: 0.55},
   text: {flex: 1},
