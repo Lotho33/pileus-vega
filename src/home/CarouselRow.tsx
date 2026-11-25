@@ -18,14 +18,14 @@
 // the previous row unmounts it reassigns focus to whatever card sits under
 // the old one — both landed mid-row, and the row then slid there.
 
-import React, {forwardRef, useEffect, useRef, useState} from 'react';
+import React, {forwardRef, useCallback, useEffect, useRef, useState} from 'react';
 import {ActivityIndicator, FlatList, Image, Pressable, View} from 'react-native';
 import {Text} from '../components/Text';
 import {TVFocusGuideView, useTVEventHandler} from '@amazon-devices/react-native-kepler';
 import {Icon} from '../components/Icon';
 import {focusSoon, requestFocus, SETTLE_MS} from '../core/focus';
 import {shouldLoadMore} from '../core/paging';
-import {rankedSlotWidth, rankNumberWidth} from '../core/ranking';
+import {RANK_IMAGE_WIDTH, rankedSlotWidth} from '../core/ranking';
 import * as perf from '../core/perf';
 import {LandscapeCard, LiveCard, PosterCard} from './Cards';
 import type {HomeLayout} from './layout';
@@ -95,10 +95,8 @@ const RANK_IMAGES = [
 function RankedSlot({rank, w, h, children}: {rank: number; w: number; h: number; children: React.ReactNode}) {
   const img = RANK_IMAGES[rank - 1];
   return (
-    <View style={{width: rankedSlotWidth(w, rank), height: h}}>
-      {img ? (
-        <Image source={img} style={[styles.rank, {width: Math.round(w * rankNumberWidth(rank)), height: h}]} />
-      ) : null}
+    <View style={{width: rankedSlotWidth(w), height: h}}>
+      {img ? <Image source={img} style={[styles.rank, {width: Math.round(w * RANK_IMAGE_WIDTH), height: h}]} /> : null}
       <View style={styles.rankedCard}>{children}</View>
     </View>
   );
@@ -167,51 +165,25 @@ export function CarouselRow(p: Props) {
     p.variant === 'live' ? p.L.liveW : p.variant === 'landscape' ? p.L.landscapeW : p.L.posterW,
   );
   const h = Math.round(p.variant === 'live' ? p.L.liveH : p.L.posterH);
-  const gap = Math.round(p.L.gap);
-  const stride = (p.ranked ? rankedSlotWidth(w) : w) + gap;
-  // A Top 10's two-digit rank has a wider slot (rankNumberWidth): there,
-  // positions are summed slot by slot instead of a fixed stride.
-  const strideAt = (i: number) =>
-    p.ranked && i < p.cards.length ? rankedSlotWidth(w, p.cards[i].rank ?? i + 1) + gap : stride;
-  const offsetOf = (i: number) => {
-    if (!p.ranked) {
-      return stride * i;
-    }
-    let x = 0;
-    for (let j = 0; j < i; j++) {
-      x += strideAt(j);
-    }
-    return x;
-  };
+  const stride = (p.ranked ? rankedSlotWidth(w) : w) + Math.round(p.L.gap);
   // Slots: the cards plus the load-more card; whole cards that fit.
   const slots = p.cards.length + (p.loadMore ? 1 : 0);
-  const avail = p.L.W - p.L.hPad * 2;
-  const fit = Math.max(1, Math.floor((avail + p.L.gap) / stride));
-  // The furthest the row slides: from there the last slot ends at the margin.
-  const maxSlide = () => {
-    if (!p.ranked) {
-      return slots - fit;
-    }
-    const end = offsetOf(slots) - gap;
-    for (let i = 0; i < slots; i++) {
-      if (end - offsetOf(i) <= avail + 0.5) {
-        return i;
-      }
-    }
-    return 0;
-  };
+  const fit = Math.max(1, Math.floor((p.L.W - p.L.hPad * 2 + p.L.gap) / stride));
   // No state here: a re-render of every cell on each step made the first
   // card's hasTVPreferredFocus pull focus back to it.
   const slideTo = (i: number, animated: boolean) => {
-    const f = Math.max(0, Math.min(i, maxSlide()));
-    list.current?.scrollToOffset({offset: offsetOf(f), animated});
+    const f = Math.max(0, Math.min(i, slots - fit));
+    list.current?.scrollToOffset({offset: stride * f, animated});
   };
 
-  const getItemLayout = (_: unknown, index: number) => ({
-    length: strideAt(index),
-    offset: offsetOf(index),
-    index,
-  });
+  const getItemLayout = useCallback(
+    (_: unknown, index: number) => ({
+      length: stride,
+      offset: stride * index,
+      index,
+    }),
+    [stride],
+  );
 
   // ── Where focus has to land ──────────────────────────────────────────
   // The card a step or a placement aimed at; with none, focus coming in
@@ -440,7 +412,7 @@ export function CarouselRow(p: Props) {
             />
           );
           return (
-            <TVFocusGuideView style={[styles.cell, {width: strideAt(index)}]} trapFocusLeft={index > 0} trapFocusRight>
+            <TVFocusGuideView style={[styles.cell, {width: stride}]} trapFocusLeft={index > 0} trapFocusRight>
               {p.ranked ? (
                 <RankedSlot rank={item.rank ?? index + 1} w={w} h={h}>
                   {card}

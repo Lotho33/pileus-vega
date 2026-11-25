@@ -12,12 +12,12 @@ export const RANKED_MAX_ITEMS = 10;
 
 /** How wide the number beside a card is (× card width); the card covers RANK_OVERLAP of it. */
 export const RANK_NUMBER_WIDTH = 1.0;
-export const RANK_OVERLAP = 0.4;
-/** A two-digit rank ("10") gets more room, so it stands nearly as tall as the others. */
-export const RANK_NUMBER_WIDTH_WIDE = 1.5;
-
-/** The number's space for `rank`, × card width. */
-export const rankNumberWidth = (rank: number) => (rank >= 10 ? RANK_NUMBER_WIDTH_WIDE : RANK_NUMBER_WIDTH);
+export const RANK_OVERLAP = 0.3;
+/**
+ * The number images' width (× card width): a little past the number's space,
+ * where "10" runs further under its card (rank_number.dart).
+ */
+export const RANK_IMAGE_WIDTH = 1.05;
 
 export const isRankedCatalog = (def: CatalogDef | undefined) => def?.styleHint === 'ranked';
 
@@ -28,8 +28,7 @@ export const catalogItemBadge = (i: CatalogItem) => i.badge ?? '';
 /** The number for the item at `index` (0-based) of a ranked row. */
 export const rankFor = (rank: number, index: number) => (rank > 0 ? rank : index + 1);
 
-export const rankedSlotWidth = (cardW: number, rank = 1) =>
-  Math.round(cardW * (1 + rankNumberWidth(rank) - RANK_OVERLAP));
+export const rankedSlotWidth = (cardW: number) => Math.round(cardW * (1 + RANK_NUMBER_WIDTH - RANK_OVERLAP));
 
 /** A card's badge as its label; '' for anything unknown. */
 export function cardBadgeLabel(badge: string | undefined): string {
