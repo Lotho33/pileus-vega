@@ -13,8 +13,8 @@ export const RANKED_MAX_ITEMS = 10;
 /** How wide the number beside a card is (× card width); the card covers RANK_OVERLAP of it. */
 export const RANK_NUMBER_WIDTH = 1.0;
 export const RANK_OVERLAP = 0.4;
-/** A two-digit rank ("10"): a little more room, so the "0" is not all hidden. */
-export const RANK_NUMBER_WIDTH_WIDE = 1.15;
+/** A two-digit rank ("10") gets more room, so it stands nearly as tall as the others. */
+export const RANK_NUMBER_WIDTH_WIDE = 1.5;
 
 /** The number's space for `rank`, × card width. */
 export const rankNumberWidth = (rank: number) => (rank >= 10 ? RANK_NUMBER_WIDTH_WIDE : RANK_NUMBER_WIDTH);
