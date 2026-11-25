@@ -10,8 +10,8 @@ describe('ranking', () => {
     expect(rankFor(0, 0)).toBe(1);
     expect(rankFor(0, 9)).toBe(10);
     expect(rankFor(7, 2)).toBe(7);
-    expect(rankedSlotWidth(100)).toBe(170);
-    expect(rankedSlotWidth(100, 10)).toBe(223);
+    expect(rankedSlotWidth(100)).toBe(160);
+    expect(rankedSlotWidth(100, 10)).toBe(175);
   });
 
   it('badge labels; unknown values show nothing', () => {
