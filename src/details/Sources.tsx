@@ -297,7 +297,15 @@ const styles = scaledStyles({
     backgroundColor: 'rgba(242,242,240,0.12)',
   },
   popupPrimary: {borderColor: colors.primary, backgroundColor: 'rgba(124,106,247,0.55)'},
-  popupFocused: {borderWidth: 4, borderColor: '#fff', backgroundColor: colors.primary},
+  // The focus edge is 1 thicker: taken off the padding, so the button keeps
+  // its size and the ones beside it don't move.
+  popupFocused: {
+    borderWidth: 4,
+    paddingHorizontal: 23,
+    paddingVertical: 11,
+    borderColor: '#fff',
+    backgroundColor: colors.primary,
+  },
   popupText: {fontSize: 15, fontWeight: '600'},
   chip: {
     flexDirection: 'row',

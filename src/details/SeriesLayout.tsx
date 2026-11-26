@@ -671,7 +671,9 @@ const styles = scaledStyles({
   },
   pills: {flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4},
   pill: {borderColor: 'rgba(242,242,240,0.30)', backgroundColor: 'rgba(26,26,46,0.85)'},
-  pillSelected: {backgroundColor: colors.primary, borderWidth: 0},
+  // Same border width as the others (the fill hides it): at 0 the selected
+  // pill stood shorter than the rest.
+  pillSelected: {backgroundColor: colors.primary, borderColor: colors.primary},
   pillFocused: {borderColor: colors.primary, backgroundColor: 'rgba(124,106,247,0.30)'},
   pillText: {color: colors.textMid, fontWeight: '500'},
   pillTextSelected: {fontWeight: '700'},

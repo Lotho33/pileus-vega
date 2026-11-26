@@ -246,10 +246,18 @@ const styles = scaledStyles({
   reset: {
     alignItems: 'center',
     paddingVertical: 14,
+    paddingHorizontal: 1,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  resetFocused: {borderColor: colors.primary, borderWidth: 2, backgroundColor: 'rgba(124,106,247,0.16)'},
+  // 1 off the padding for the 2-wide edge: same size focused or not.
+  resetFocused: {
+    borderColor: colors.primary,
+    borderWidth: 2,
+    paddingVertical: 13,
+    paddingHorizontal: 0,
+    backgroundColor: 'rgba(124,106,247,0.16)',
+  },
   resetText: {color: colors.textMid, fontSize: 20, fontWeight: '600'},
 });
