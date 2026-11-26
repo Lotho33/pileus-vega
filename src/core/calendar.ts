@@ -117,11 +117,12 @@ export function calendarSubtitle(e: CalendarEntry): string {
 export const calendarLandscapeThumb = (e: CalendarEntry) => e.item?.mediaType === 'episode';
 
 /**
- * What OK opens: the series of an episode, or the title itself — only once
- * it's available ("Previsto" opens nothing: a date is a plan).
+ * What OK opens: the series of an episode, or the title itself — a
+ * "Previsto" one too (its page, to follow or add it ahead of the date).
+ * Null only for an entry with nothing to open.
  */
 export function calendarOpenTarget(e: CalendarEntry): CatalogItem | null {
-  if (!e.available || !e.item) {
+  if (!e.item) {
     return null;
   }
   if (e.seriesId) {
@@ -132,5 +133,5 @@ export function calendarOpenTarget(e: CalendarEntry): CatalogItem | null {
       mediaType: 'series',
     });
   }
-  return e.item;
+  return e.item.id ? e.item : null;
 }

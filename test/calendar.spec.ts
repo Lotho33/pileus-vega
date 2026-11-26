@@ -72,8 +72,8 @@ describe('calendar', () => {
     expect(calendarSubtitle(bare)).toBe('S2 · E8');
   });
 
-  it('OK opens the series once available, nothing before', () => {
-    expect(calendarOpenTarget(entry('2026-11-26', {available: false}))).toBeNull();
+  it('OK opens the series, "Previsto" ones too', () => {
+    expect(calendarOpenTarget(entry('2026-11-26', {available: false, seriesId: 's1'}))?.id).toBe('s1');
     const ep = calendarOpenTarget(entry('2026-11-26', {seriesId: 's1'}));
     expect(ep?.id).toBe('s1');
     expect(ep?.mediaType).toBe('series');

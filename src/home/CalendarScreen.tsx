@@ -2,7 +2,7 @@
 // CALENDAR_DAYS days, every plugin together like La mia lista, grouped by
 // day. "Solo le mie" asks the server for the followed series only; a plugin
 // chip filters what came back. OK on a row opens its title (an episode: its
-// series) once available; a "Previsto" one only says when it's due.
+// series), a "Previsto" one too.
 
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, View} from 'react-native';
@@ -251,8 +251,8 @@ const Row = React.forwardRef<View, {s: number; entry: CalendarEntry; pluginName:
     const thumbW = calendarLandscapeThumb(e) ? (thumbH * 16) / 9 : (thumbH * 2) / 3;
     const dim = !e.available;
     const time = calendarTimeLabel(e);
-    // No announced hour: "In giornata" at the head of the small line, a
-    // calendar mark where the hour would stand.
+    // No announced hour: "In giornata" at the head of the small line,
+    // "--:--" where the hour would stand.
     const sub = [time ? '' : 'In giornata', calendarSubtitle(e), pluginName].filter(Boolean).join('  ·  ');
     const poster = e.item?.posterUrl ?? '';
     return (
@@ -267,15 +267,10 @@ const Row = React.forwardRef<View, {s: number; entry: CalendarEntry; pluginName:
           {padding: 10 * s, borderRadius: 12 * s, marginBottom: 10 * s},
           focused && styles.rowFocused,
         ]}>
-        {time ? (
-          <Text style={[styles.time, {width: 90 * s, fontSize: 24 * s}]} numberOfLines={1}>
-            {time}
-          </Text>
-        ) : (
-          <View style={[styles.allDay, {width: 90 * s}]}>
-            <Icon name="calendar" size={28 * s} color={colors.textLow} />
-          </View>
-        )}
+        {/* No announced hour: "--:--", dimmed, in the hour's place. */}
+        <Text style={[styles.time, !time && styles.noTime, {width: 110 * s, fontSize: 24 * s}]} numberOfLines={1}>
+          {time || '--:--'}
+        </Text>
         <View style={[styles.thumb, {width: thumbW, height: thumbH, borderRadius: 8 * s}]}>
           {poster ? (
             <Image
@@ -341,7 +336,7 @@ const styles = scaledStyles({
   },
   rowFocused: {backgroundColor: 'rgba(255,255,255,0.10)', borderColor: colors.primary},
   time: {color: colors.textMid, fontWeight: '600', textAlign: 'center'},
-  allDay: {alignItems: 'center'},
+  noTime: {color: colors.textLow},
   thumb: {overflow: 'hidden', backgroundColor: colors.surface2},
   dim: {opacity: 0.55},
   text: {flex: 1},
