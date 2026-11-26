@@ -14,10 +14,12 @@ import {mycelium} from '../core/api';
 import {
   calendarDayLabel,
   calendarLandscapeThumb,
+  calendarLiveNow,
   calendarOpenTarget,
   calendarRange,
   calendarReleaseTime,
   calendarSubtitle,
+  calendarThumbUrl,
   calendarTimeLabel,
   calendarTitle,
   groupCalendar,
@@ -249,12 +251,13 @@ const Row = React.forwardRef<View, {s: number; entry: CalendarEntry; pluginName:
     // An episode's still is landscape; a film's poster portrait.
     const thumbH = 96 * s;
     const thumbW = calendarLandscapeThumb(e) ? (thumbH * 16) / 9 : (thumbH * 2) / 3;
-    const dim = !e.available;
+    const liveNow = calendarLiveNow(e);
+    const dim = !e.available && !liveNow;
     const time = calendarTimeLabel(e);
     // No announced hour: "In giornata" at the head of the small line,
     // "--:--" where the hour would stand.
     const sub = [time ? '' : 'In giornata', calendarSubtitle(e), pluginName].filter(Boolean).join('  ·  ');
-    const poster = e.item?.posterUrl ?? '';
+    const poster = calendarThumbUrl(e);
     return (
       <Pressable
         ref={ref}
@@ -293,13 +296,15 @@ const Row = React.forwardRef<View, {s: number; entry: CalendarEntry; pluginName:
             </Text>
           ) : null}
         </View>
-        {dim ? (
+        {dim || liveNow ? (
+          // On air: "In diretta" in the live cards' red, where "Previsto" goes.
           <Text
             style={[
               styles.previsto,
+              liveNow && styles.onAir,
               {fontSize: 19 * s, paddingHorizontal: 14 * s, paddingVertical: 6 * s, borderRadius: 20 * s},
             ]}>
-            Previsto
+            {liveNow ? 'In diretta' : 'Previsto'}
           </Text>
         ) : null}
       </Pressable>
@@ -350,5 +355,6 @@ const styles = scaledStyles({
     borderColor: colors.textLow,
     overflow: 'hidden',
   },
+  onAir: {color: '#fff', fontWeight: '700', backgroundColor: 'red', borderColor: 'red'},
   failed: {color: colors.textLow},
 });

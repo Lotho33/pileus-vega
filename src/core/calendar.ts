@@ -105,16 +105,35 @@ export const calendarTitle = (e: CalendarEntry) => calendarSeriesTitle(e) || (e.
 /** The small line: "S2 · E8 · Episodio 8" (the episode's own title only under the series' name). */
 export function calendarSubtitle(e: CalendarEntry): string {
   const i = e.item;
+  // A live event: its competition ("Serie A", "ATP Finals").
+  if (i?.mediaType === 'live') {
+    return (i.extra?.competition ?? '').trim();
+  }
   const badge = episodeBadge(i?.seasonNumber ?? 0, i?.episodeNumber ?? 0);
   const own = calendarSeriesTitle(e) ? (i?.title ?? '').trim() : '';
   return [badge, own].filter(Boolean).join(' · ');
 }
 
 /**
- * The row's picture is an episode still (landscape) only for an episode item;
- * a plugin may send the series' own card (portrait poster) with series_id.
+ * The row's picture is landscape for an episode item (its still) and a live
+ * event (its cover, often "badge vs badge"); a plugin may send the series'
+ * own card (its portrait poster) with `series_id` and the episode number
+ * instead.
  */
-export const calendarLandscapeThumb = (e: CalendarEntry) => e.item?.mediaType === 'episode';
+export const calendarLandscapeThumb = (e: CalendarEntry) =>
+  e.item?.mediaType === 'episode' || e.item?.mediaType === 'live';
+
+/** The row's picture: a live event's wide image when sent (as the home's live cards), else the poster. */
+export function calendarThumbUrl(e: CalendarEntry): string {
+  const i = e.item;
+  if (i?.mediaType === 'live' && i.bannerUrl) {
+    return i.bannerUrl;
+  }
+  return i?.posterUrl ?? '';
+}
+
+/** A live event on air right now (`extra.is_live`, as on the home). */
+export const calendarLiveNow = (e: CalendarEntry) => e.item?.mediaType === 'live' && e.item.extra?.is_live === '1';
 
 /**
  * What OK opens: the series of an episode, or the title itself — a

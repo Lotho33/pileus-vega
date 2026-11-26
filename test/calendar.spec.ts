@@ -1,9 +1,12 @@
 import {
   calendarDayLabel,
+  calendarLandscapeThumb,
+  calendarLiveNow,
   calendarOpenTarget,
   calendarRange,
   calendarReleaseTime,
   calendarSubtitle,
+  calendarThumbUrl,
   calendarTimeLabel,
   calendarTitle,
   groupCalendar,
@@ -78,5 +81,27 @@ describe('calendar', () => {
     expect(ep?.id).toBe('s1');
     expect(ep?.mediaType).toBe('series');
     expect(calendarOpenTarget(entry('2026-11-26'))?.id).toBe('i');
+  });
+
+  it('a live event: competition, landscape, wide image, "In diretta" on air', () => {
+    const live = (o: {banner?: string; onAir?: boolean} = {}): CalendarEntry =>
+      CalendarEntry.fromPartial({
+        pluginId: 'p',
+        releaseAt: '2026-11-26T20:45:00Z',
+        item: {
+          id: 'e',
+          title: 'Inter - Milan',
+          mediaType: 'live',
+          posterUrl: 'poster',
+          bannerUrl: o.banner ?? '',
+          extra: {competition: 'Serie A', ...(o.onAir ? {is_live: '1'} : {})},
+        },
+      });
+    expect(calendarSubtitle(live())).toBe('Serie A');
+    expect(calendarLandscapeThumb(live())).toBe(true);
+    expect(calendarThumbUrl(live())).toBe('poster');
+    expect(calendarThumbUrl(live({banner: 'wide'}))).toBe('wide');
+    expect(calendarLiveNow(live())).toBe(false);
+    expect(calendarLiveNow(live({onAir: true}))).toBe(true);
   });
 });
