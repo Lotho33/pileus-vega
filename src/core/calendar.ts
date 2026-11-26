@@ -4,6 +4,7 @@
 
 import {episodeBadge} from '../home/model';
 import {CalendarEntry, CatalogItem} from '../gen/media';
+import AsyncStorage from '@amazon-devices/react-native-async-storage__async-storage';
 
 /** How many days the page asks for (today included; the server allows 31). */
 export const CALENDAR_DAYS = 14;
@@ -153,4 +154,27 @@ export function calendarOpenTarget(e: CalendarEntry): CatalogItem | null {
     });
   }
   return e.item.id ? e.item : null;
+}
+
+/** The calendar's filters, kept per profile across visits (calendar.dart's CalendarFilters). */
+export interface CalendarFilters {
+  followedOnly: boolean;
+  /** '' = every plugin. */
+  plugin: string;
+}
+
+const filtersKey = (profileId: string) => `pileus.calendar.filters:${profileId}`;
+
+export async function readCalendarFilters(profileId: string): Promise<CalendarFilters> {
+  try {
+    const raw = await AsyncStorage.getItem(filtersKey(profileId));
+    const v = raw ? JSON.parse(raw) : null;
+    return {followedOnly: v?.followedOnly === true, plugin: typeof v?.plugin === 'string' ? v.plugin : ''};
+  } catch {
+    return {followedOnly: false, plugin: ''};
+  }
+}
+
+export function saveCalendarFilters(profileId: string, f: CalendarFilters): void {
+  AsyncStorage.setItem(filtersKey(profileId), JSON.stringify(f)).catch(() => {});
 }

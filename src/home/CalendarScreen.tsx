@@ -16,6 +16,8 @@ import {
   calendarLandscapeThumb,
   calendarLiveNow,
   calendarOpenTarget,
+  readCalendarFilters,
+  saveCalendarFilters,
   calendarRange,
   calendarReleaseTime,
   calendarSubtitle,
@@ -66,6 +68,27 @@ export function CalendarScreen({
   const [loading, setLoading] = useState(true);
   const [followedOnly, setFollowedOnly] = useState(false);
   const [plugin, setPlugin] = useState('');
+  // The filters are remembered per profile; nothing loads before they're read.
+  const [ready, setReady] = useState(false);
+  const profileId = mycelium.creds.profileId;
+  useEffect(() => {
+    let alive = true;
+    readCalendarFilters(profileId).then(f => {
+      if (alive) {
+        setFollowedOnly(f.followedOnly);
+        setPlugin(f.plugin);
+        setReady(true);
+      }
+    });
+    return () => {
+      alive = false;
+    };
+  }, [profileId]);
+  useEffect(() => {
+    if (ready) {
+      saveCalendarFilters(profileId, {followedOnly, plugin});
+    }
+  }, [ready, profileId, followedOnly, plugin]);
 
   const load = useCallback(async (followed: boolean) => {
     setLoading(true);
@@ -80,8 +103,10 @@ export function CalendarScreen({
     }
   }, []);
   useEffect(() => {
-    load(followedOnly);
-  }, [load, followedOnly]);
+    if (ready) {
+      load(followedOnly);
+    }
+  }, [load, followedOnly, ready]);
 
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -99,6 +124,8 @@ export function CalendarScreen({
   const name = (id: string) => pluginNames[id] || id;
   const all = useMemo(() => data?.entries ?? [], [data]);
   const plugins = useMemo(() => [...new Set(all.map(e => e.pluginId))], [all]);
+  // The remembered plugin stays a choice even when nothing of it came back.
+  const choices = plugin && !plugins.includes(plugin) ? [...plugins, plugin] : plugins;
   const days = useMemo(() => groupCalendar(all.filter(e => !plugin || e.pluginId === plugin)), [all, plugin]);
   const failed = data?.failedPlugins ?? [];
 
@@ -158,11 +185,11 @@ export function CalendarScreen({
           selected={followedOnly}
           onPress={() => setFollowedOnly(f => !f)}
         />
-        {plugins.length > 1 ? (
+        {choices.length > 1 || plugin ? (
           <>
             <View style={{width: 20 * s}} />
             <Chip s={s} label="Tutti" selected={!plugin} onPress={() => setPlugin('')} />
-            {plugins.map(p => (
+            {choices.map(p => (
               <Chip key={p} s={s} label={name(p)} selected={plugin === p} onPress={() => setPlugin(p)} />
             ))}
           </>
