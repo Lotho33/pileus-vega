@@ -300,9 +300,12 @@ export function QuickSearch({
   const label = plugin.name || plugin.pluginId;
   const bar = (
     <View style={[styles.bar, open && styles.barOpen, {height: barH, paddingHorizontal: barH * 0.28}]}>
-      <Icon name="search" size={barH * 0.42} color="rgba(242,242,240,0.5)" />
+      <Icon name="search" size={barH * 0.42} color={open ? 'rgba(242,242,240,0.5)' : 'rgba(242,242,240,0.85)'} />
       <Text
-        style={[styles.barText, !query && styles.barPlaceholder, {fontSize: barH * 0.32, marginLeft: barH * 0.2}]}
+        style={[
+          styles.barText,
+          !query && (open ? styles.barPlaceholder : styles.barPlaceholderClosed),
+          {fontSize: barH * 0.32, marginLeft: barH * 0.2}]}
         numberOfLines={1}>
         {query || `Cerca in ${label}…`}
         {open ? <Text style={styles.caret}>|</Text> : null}
@@ -389,12 +392,16 @@ const styles = scaledStyles({
     alignItems: 'center',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(242,242,240,0.12)',
-    backgroundColor: '#1E1E2E',
+    // Closed, on the home, lifted off the page with the app's neutrals
+    // (search_bar.dart): surface2 lightened, a brighter outline, icon and
+    // hint — not the accent, which means focus. Open, plain again.
+    borderColor: 'rgba(242,242,240,0.28)',
+    backgroundColor: '#2C2C3F',
   },
-  barOpen: {borderColor: 'rgba(242,242,240,0.20)'},
+  barOpen: {borderColor: 'rgba(242,242,240,0.20)', backgroundColor: '#1E1E2E'},
   barText: {flex: 1, color: colors.textHigh},
   barPlaceholder: {color: 'rgba(242,242,240,0.4)'},
+  barPlaceholderClosed: {color: 'rgba(242,242,240,0.65)'},
   caret: {color: colors.primary},
   square: {
     alignItems: 'center',

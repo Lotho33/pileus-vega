@@ -1,10 +1,12 @@
 // D-pad on-screen keyboard, port of pileus-player's on_screen_keyboard.dart.
 // Vega's system keyboard covers the whole screen (live search results can't
 // show under it), so every field in the app types through this instead.
-// Spatial focus between keys is left to the native focus engine.
+// Spatial focus between keys is left to the native focus engine, except at
+// a row's ends: right from the last key wraps to the first, left from the
+// first to the last.
 
 import React, {forwardRef, memo, useEffect, useRef, useState} from 'react';
-import {Pressable, View} from 'react-native';
+import {Pressable, View, findNodeHandle} from 'react-native';
 import {Text} from './Text';
 import {focusSoon} from '../core/focus';
 import {colors, px, scaledStyles} from '../theme';
@@ -104,10 +106,16 @@ interface KeyProps {
   gap: number;
   onFocus: () => void;
   onPress: () => void;
+  /** Wrap-around targets at a row's ends (node handles). */
+  nextFocusLeft?: number;
+  nextFocusRight?: number;
 }
 
 const Key = memo(
-  forwardRef<View, KeyProps>(function Key({def, active, focusable, preferred, height, gap, onFocus, onPress}, ref) {
+  forwardRef<View, KeyProps>(function Key(
+    {def, active, focusable, preferred, height, gap, onFocus, onPress, nextFocusLeft, nextFocusRight},
+    ref,
+  ) {
   const [focused, setFocused] = useState(false);
   const [width, setWidth] = useState(0);
   const isSpecial = SPECIAL.has(def.label);
@@ -121,6 +129,7 @@ const Key = memo(
       ref={ref}
       focusable={focusable}
       hasTVPreferredFocus={preferred}
+      {...({nextFocusLeft, nextFocusRight} as object)}
       accessibilityLabel={def.label}
       onFocus={() => {
         setFocused(true);
@@ -185,6 +194,15 @@ export function OnScreenKeyboard({
   );
   const rows = keyboardRows(layout, {shift, symbols, showEnter});
   const refs = useRef(new Map<string, View>());
+  // Each row's first and last key, as node handles once mounted: the
+  // wrap-around targets. Shift keeps the same keys; a layer switch remounts.
+  const shape = rows.map(r => r.length).join(',');
+  const [ends, setEnds] = useState<{first: number; last: number}[]>([]);
+  useEffect(() => {
+    const lens = shape.split(',').map(Number);
+    const handle = (k: string) => findNodeHandle(refs.current.get(k) ?? null) ?? 0;
+    setEnds(lens.map((n, r) => ({first: handle(`${r}:0`), last: handle(`${r}:${n - 1}`)})));
+  }, [shape, symbols]);
 
   useEffect(() => {
     if (!land) {
@@ -255,6 +273,8 @@ export function OnScreenKeyboard({
               gap={gap}
               onFocus={() => onKeyFocus?.(r)}
               onPress={() => press(def.label)}
+              nextFocusLeft={row.length > 1 && c === 0 ? ends[r]?.last || undefined : undefined}
+              nextFocusRight={row.length > 1 && c === row.length - 1 ? ends[r]?.first || undefined : undefined}
             />
           ))}
         </View>
