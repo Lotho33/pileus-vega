@@ -17,7 +17,7 @@ export const RANK_OVERLAP = 0.2;
  * The number images' width (× card width): a little past the number's space,
  * where "10" runs further under its card (rank_number.dart).
  */
-export const RANK_IMAGE_WIDTH = 1.05;
+export const RANK_IMAGE_WIDTH = 1.25;
 
 export const isRankedCatalog = (def: CatalogDef | undefined) => def?.styleHint === 'ranked';
 
