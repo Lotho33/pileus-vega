@@ -16,7 +16,7 @@ import {HOME_ROW_MAX_ITEMS, showsMoreSlot} from '../core/paging';
 import * as perf from '../core/perf';
 import {scheduleWarm} from '../core/warm';
 import {focusSoon, useFocusGate} from '../core/focus';
-import type {CatalogDef, ContinueWatchingItem, PluginInfo} from '../gen/media';
+import type {CatalogDef, CatalogItem, ContinueWatchingItem, PluginInfo} from '../gen/media';
 import {colors, scaledStyles} from '../theme';
 import {CarouselRow, FocusRequest} from './CarouselRow';
 import {cachedCwHero, fetchCwHero} from './cwHero';
@@ -202,9 +202,15 @@ export function PluginHome({
       setState(s => ({...s, [def.id]: firstPage([], {loading: true})}));
       try {
         // "Nuovi episodi" (core/newEpisodes.ts) comes from GetNewEpisodes.
-        const r = isNewEpisodesCatalog(def.id)
-          ? {items: await newEpisodes.forPlugin(plugin.pluginId), hasMore: false}
-          : await mycelium.getCatalog(plugin.pluginId, def.id, 1);
+        // Awaited on its own line: on the device, an await inside the
+        // object literal of a conditional left `items` undefined.
+        let r: {items: CatalogItem[]; hasMore: boolean};
+        if (isNewEpisodesCatalog(def.id)) {
+          const items = await newEpisodes.forPlugin(plugin.pluginId);
+          r = {items, hasMore: false};
+        } else {
+          r = await mycelium.getCatalog(plugin.pluginId, def.id, 1);
+        }
         const variant = variantFor(def);
         const seen = new Set<string>();
         let cards = r.items
@@ -224,7 +230,8 @@ export function PluginHome({
         if (r.items.some(i => logoPending(i.logoUrl, i.logoMeta))) {
           rereadForLogoMeta(def);
         }
-      } catch {
+      } catch (err) {
+        console.warn('[pileus/rowfail]', def.id, String(err), (err as Error)?.stack ?? '');
         setState(s => ({...s, [def.id]: firstPage([], {failed: true})}));
       }
     },
