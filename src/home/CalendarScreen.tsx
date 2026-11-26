@@ -27,6 +27,7 @@ import {
 import {focusSoon} from '../core/focus';
 import {GrpcError, GrpcStatus} from '../core/grpcWeb';
 import {posterSrc} from '../core/images';
+import {languageBadges} from '../core/language';
 import * as perf from '../core/perf';
 import {SquareBackButton} from '../components/SquareBackButton';
 import type {CalendarEntry, CalendarResponse} from '../gen/media';
@@ -289,6 +290,25 @@ const Row = React.forwardRef<View, {s: number; entry: CalendarEntry; pluginName:
             <Text style={[styles.title, {fontSize: 26 * s}]} numberOfLines={1}>
               {calendarTitle(e)}
             </Text>
+            {/* Which version comes out: sub and dub of the same title are
+                separate releases (often minutes or episodes apart). */}
+            {languageBadges(e.item?.extra?.lang).map(b => (
+              <Text
+                key={b.label}
+                style={[
+                  styles.langPill,
+                  {
+                    backgroundColor: b.color,
+                    fontSize: 16 * s,
+                    paddingHorizontal: 10 * s,
+                    paddingVertical: 3 * s,
+                    borderRadius: 6 * s,
+                    marginLeft: 4 * s,
+                  },
+                ]}>
+                {b.label}
+              </Text>
+            ))}
           </View>
           {sub ? (
             <Text style={[styles.sub, {fontSize: 21 * s, marginTop: 4 * s}]} numberOfLines={1}>
@@ -356,5 +376,6 @@ const styles = scaledStyles({
     overflow: 'hidden',
   },
   onAir: {color: '#fff', fontWeight: '700', backgroundColor: 'red', borderColor: 'red'},
+  langPill: {color: '#fff', fontWeight: '700', overflow: 'hidden'},
   failed: {color: colors.textLow},
 });
