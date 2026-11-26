@@ -418,6 +418,17 @@ export function PluginHome({
       commitHero(cards[0]);
     }
   }, [cards, commitHero]);
+  // The card the hero shows left the row (removed from Continua a guardare):
+  // show the one that took its place — focus stays on the same slot, so no
+  // focus event would ever refresh the background, logo and details.
+  useEffect(() => {
+    if (!heroCard.current || !cards.length || cards.some(c => c.key === heroCard.current)) {
+      return;
+    }
+    const index = Math.min(focusedIndex.current, cards.length - 1);
+    focusedIndex.current = index;
+    commitHero(cards[index]);
+  }, [cards, commitHero]);
   useEffect(
     () => () => {
       if (heroTimer.current) {
