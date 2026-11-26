@@ -250,7 +250,10 @@ const Row = React.forwardRef<View, {s: number; entry: CalendarEntry; pluginName:
     const thumbH = 96 * s;
     const thumbW = calendarLandscapeThumb(e) ? (thumbH * 16) / 9 : (thumbH * 2) / 3;
     const dim = !e.available;
-    const sub = [calendarSubtitle(e), pluginName].filter(Boolean).join('  ·  ');
+    const time = calendarTimeLabel(e);
+    // No announced hour: "In giornata" at the head of the small line, a
+    // calendar mark where the hour would stand.
+    const sub = [time ? '' : 'In giornata', calendarSubtitle(e), pluginName].filter(Boolean).join('  ·  ');
     const poster = e.item?.posterUrl ?? '';
     return (
       <Pressable
@@ -264,11 +267,12 @@ const Row = React.forwardRef<View, {s: number; entry: CalendarEntry; pluginName:
           {padding: 10 * s, borderRadius: 12 * s, marginBottom: 10 * s},
           focused && styles.rowFocused,
         ]}>
-        {/* No announced hour: "In giornata" instead of an empty time. */}
-        {calendarTimeLabel(e) ? (
-          <Text style={[styles.time, {width: 90 * s, fontSize: 24 * s}]}>{calendarTimeLabel(e)}</Text>
+        {time ? (
+          <Text style={[styles.time, {width: 90 * s, fontSize: 24 * s}]}>{time}</Text>
         ) : (
-          <Text style={[styles.allDay, {width: 90 * s, fontSize: 18 * s, lineHeight: 21 * s}]}>{'In\ngiornata'}</Text>
+          <View style={{width: 90 * s}}>
+            <Icon name="calendar" size={28 * s} color={colors.textLow} />
+          </View>
         )}
         <View style={[styles.thumb, {width: thumbW, height: thumbH, borderRadius: 8 * s}]}>
           {poster ? (
@@ -335,7 +339,6 @@ const styles = scaledStyles({
   },
   rowFocused: {backgroundColor: 'rgba(255,255,255,0.10)', borderColor: colors.primary},
   time: {color: colors.textMid, fontWeight: '600'},
-  allDay: {color: colors.textLow, fontWeight: '600'},
   thumb: {overflow: 'hidden', backgroundColor: colors.surface2},
   dim: {opacity: 0.55},
   text: {flex: 1},
