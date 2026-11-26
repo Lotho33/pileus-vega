@@ -12,12 +12,12 @@ export const RANKED_MAX_ITEMS = 10;
 
 /** How wide the number beside a card is (× card width); the card covers RANK_OVERLAP of it. */
 export const RANK_NUMBER_WIDTH = 1.0;
-export const RANK_OVERLAP = 0.3;
+export const RANK_OVERLAP = 0.2;
 /**
  * The number images' width (× card width): a little past the number's space,
  * where "10" runs further under its card (rank_number.dart).
  */
-export const RANK_IMAGE_WIDTH = 1.1;
+export const RANK_IMAGE_WIDTH = 1.05;
 
 export const isRankedCatalog = (def: CatalogDef | undefined) => def?.styleHint === 'ranked';
 

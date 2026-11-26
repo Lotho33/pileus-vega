@@ -268,9 +268,11 @@ const Row = React.forwardRef<View, {s: number; entry: CalendarEntry; pluginName:
           focused && styles.rowFocused,
         ]}>
         {time ? (
-          <Text style={[styles.time, {width: 90 * s, fontSize: 24 * s}]}>{time}</Text>
+          <Text style={[styles.time, {width: 90 * s, fontSize: 24 * s}]} numberOfLines={1}>
+            {time}
+          </Text>
         ) : (
-          <View style={{width: 90 * s}}>
+          <View style={[styles.allDay, {width: 90 * s}]}>
             <Icon name="calendar" size={28 * s} color={colors.textLow} />
           </View>
         )}
@@ -338,7 +340,8 @@ const styles = scaledStyles({
     borderColor: 'transparent',
   },
   rowFocused: {backgroundColor: 'rgba(255,255,255,0.10)', borderColor: colors.primary},
-  time: {color: colors.textMid, fontWeight: '600'},
+  time: {color: colors.textMid, fontWeight: '600', textAlign: 'center'},
+  allDay: {alignItems: 'center'},
   thumb: {overflow: 'hidden', backgroundColor: colors.surface2},
   dim: {opacity: 0.55},
   text: {flex: 1},
