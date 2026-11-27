@@ -2,7 +2,7 @@ schema-version = 1
 
 [package]
 title = "Pileus"
-version = "1.0.9"
+version = "1.0.10"
 id = "com.lotho33.pileus"
 icon = "@image/icon.png"
 
