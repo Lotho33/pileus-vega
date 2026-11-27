@@ -395,6 +395,8 @@ export function HomeScreen() {
     () => Object.fromEntries((plugins ?? []).map(p => [p.pluginId, p.name || p.pluginId])),
     [plugins],
   );
+  // The side menu's order, for the plugin filters of Calendario and La mia lista.
+  const pluginOrder = useMemo(() => (plugins ?? []).map(p => p.pluginId), [plugins]);
   const ready = plugin ? isPluginReady(plugin) : false;
   // A not-ready plugin has nothing behind the nav to go back to.
   const canCloseNav = navOpen && ready;
@@ -571,6 +573,9 @@ export function HomeScreen() {
         <MyListScreen
           L={L}
           covered={stack.length > 0 || !!player || !!live || !!menu || !!info}
+          pluginNames={pluginNames}
+          pluginOrder={pluginOrder}
+          hiddenPlugins={prefs.hidden}
           onClose={closeMyList}
           onOpenItem={openItem}
           onCardMenu={card => openMenu(card)}
@@ -581,6 +586,8 @@ export function HomeScreen() {
           L={L}
           covered={stack.length > 0 || !!player || !!live || !!menu || !!info}
           pluginNames={pluginNames}
+          pluginOrder={pluginOrder}
+          hiddenPlugins={prefs.hidden}
           onClose={closeCalendar}
           onOpenItem={openItem}
           onNotice={setToast}

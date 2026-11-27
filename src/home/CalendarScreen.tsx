@@ -9,6 +9,7 @@ import {ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, View} from 
 import {Text} from '../components/Text';
 import {TVFocusGuideView, useKeplerBackHandler} from '@amazon-devices/react-native-kepler';
 import {FocusButton} from '../components/FocusButton';
+import {FilterChip, PluginChips} from '../components/FilterChip';
 import {Icon} from '../components/Icon';
 import {mycelium} from '../core/api';
 import {
@@ -31,6 +32,7 @@ import {GrpcError, GrpcStatus} from '../core/grpcWeb';
 import {posterSrc} from '../core/images';
 import {languageBadges} from '../core/language';
 import * as perf from '../core/perf';
+import {pluginChoices} from '../core/pluginFilter';
 import {SquareBackButton} from '../components/SquareBackButton';
 import type {CalendarEntry, CalendarResponse} from '../gen/media';
 import {errorText} from '../state/auth';
@@ -45,6 +47,8 @@ export function CalendarScreen({
   L,
   covered,
   pluginNames,
+  pluginOrder,
+  hiddenPlugins,
   onClose,
   onOpenItem,
   onNotice,
@@ -54,6 +58,10 @@ export function CalendarScreen({
   covered: boolean;
   /** plugin id → its name, for the chips and the rows. */
   pluginNames: Record<string, string>;
+  /** The side menu's plugins, in its order. */
+  pluginOrder: string[];
+  /** Hidden from the side menu: hidden here too. */
+  hiddenPlugins: Set<string>;
   onClose: () => void;
   onOpenItem: (card: CardModel) => void;
   /** A short message (the toast): what a "Previsto" row says on OK. */
@@ -67,7 +75,9 @@ export function CalendarScreen({
   const [error, setError] = useState<unknown>(null);
   const [loading, setLoading] = useState(true);
   const [followedOnly, setFollowedOnly] = useState(false);
-  const [plugin, setPlugin] = useState('');
+  const [chosen, setPlugin] = useState('');
+  // Hidden from the side menu since it was chosen: "Tutti".
+  const plugin = hiddenPlugins.has(chosen) ? '' : chosen;
   // The filters are remembered per profile; nothing loads before they're read.
   const [ready, setReady] = useState(false);
   const profileId = mycelium.creds.profileId;
@@ -90,18 +100,41 @@ export function CalendarScreen({
     }
   }, [ready, profileId, followedOnly, plugin]);
 
-  const load = useCallback(async (followed: boolean) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const {from, to} = calendarRange();
-      setData(await mycelium.getCalendar(from, to, followed));
-    } catch (e) {
-      setError(e);
-    } finally {
-      setLoading(false);
-    }
+  // Every plugin the calendar has had something from on this page, both
+  // filters: "Solo le mie" keeps the plugin choice of "Tutti" (a long
+  // watchlist needs it as much).
+  const [seen, setSeen] = useState<Set<string>>(() => new Set());
+  const everyAsked = useRef(false);
+  const addSeen = useCallback((r: CalendarResponse) => {
+    setSeen(prev => {
+      const next = new Set(prev);
+      r.entries.forEach(e => next.add(e.pluginId));
+      return next.size === prev.size ? prev : next;
+    });
   }, []);
+  const load = useCallback(
+    async (followed: boolean) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const {from, to} = calendarRange();
+        const r = await mycelium.getCalendar(from, to, followed);
+        setData(r);
+        addSeen(r);
+        // Opened on "Solo le mie": which plugins the whole calendar has, for
+        // the choice (the server keeps it cached; quiet on failure).
+        if (followed && !everyAsked.current) {
+          everyAsked.current = true;
+          mycelium.getCalendar(from, to, false).then(addSeen, () => {});
+        }
+      } catch (e) {
+        setError(e);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [addSeen],
+  );
   useEffect(() => {
     if (ready) {
       load(followedOnly);
@@ -122,10 +155,13 @@ export function CalendarScreen({
   }, [covered, keplerBack]);
 
   const name = (id: string) => pluginNames[id] || id;
-  const all = useMemo(() => data?.entries ?? [], [data]);
-  const plugins = useMemo(() => [...new Set(all.map(e => e.pluginId))], [all]);
-  // The remembered plugin stays a choice even when nothing of it came back.
-  const choices = plugin && !plugins.includes(plugin) ? [...plugins, plugin] : plugins;
+  const all = useMemo(() => (data?.entries ?? []).filter(e => !hiddenPlugins.has(e.pluginId)), [data, hiddenPlugins]);
+  // In the side menu's order; the remembered plugin stays a choice even
+  // when nothing of it came back.
+  const choices = useMemo(
+    () => pluginChoices(seen, pluginOrder, hiddenPlugins, plugin),
+    [seen, pluginOrder, hiddenPlugins, plugin],
+  );
   const days = useMemo(() => groupCalendar(all.filter(e => !plugin || e.pluginId === plugin)), [all, plugin]);
   const failed = data?.failedPlugins ?? [];
 
@@ -177,7 +213,7 @@ export function CalendarScreen({
         </Text>
       </View>
       <View style={[styles.chips, {paddingHorizontal: hPad, marginTop: 16 * s, marginBottom: 8 * s}]}>
-        <Chip
+        <FilterChip
           ref={mineRef}
           s={s}
           label="Solo le mie"
@@ -188,10 +224,7 @@ export function CalendarScreen({
         {choices.length > 1 || plugin ? (
           <>
             <View style={{width: 20 * s}} />
-            <Chip s={s} label="Tutti" selected={!plugin} onPress={() => setPlugin('')} />
-            {choices.map(p => (
-              <Chip key={p} s={s} label={name(p)} selected={plugin === p} onPress={() => setPlugin(p)} />
-            ))}
+            <PluginChips s={s} plugin={plugin} choices={choices} name={name} onPlugin={setPlugin} />
           </>
         ) : null}
       </View>
@@ -232,7 +265,7 @@ export function CalendarScreen({
                     ref={ref}
                     s={s}
                     entry={e}
-                    pluginName={!plugin && plugins.length > 1 ? name(e.pluginId) : ''}
+                    pluginName={!plugin && choices.length > 1 ? name(e.pluginId) : ''}
                     onPress={() => open(e)}
                   />
                 );
@@ -249,29 +282,6 @@ export function CalendarScreen({
     </TVFocusGuideView>
   );
 }
-
-const Chip = React.forwardRef<View, {s: number; label: string; icon?: 'check'; selected: boolean; onPress: () => void}>(
-  function Chip({s, label, icon, selected, onPress}, ref) {
-    const [focused, setFocused] = useState(false);
-    return (
-      <Pressable
-        ref={ref}
-        accessibilityLabel={label}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        onPress={onPress}
-        style={[
-          styles.chip,
-          {paddingHorizontal: 22 * s, paddingVertical: 10 * s, borderRadius: 40 * s, marginRight: 10 * s},
-          selected && styles.chipSelected,
-          focused && styles.chipFocused,
-        ]}>
-        {icon ? <Icon name={icon} size={24 * s} color={colors.textHigh} /> : null}
-        <Text style={[styles.chipText, {fontSize: 22 * s}]}>{label}</Text>
-      </Pressable>
-    );
-  },
-);
 
 const Row = React.forwardRef<View, {s: number; entry: CalendarEntry; pluginName: string; onPress: () => void}>(
   function Row({s, entry: e, pluginName, onPress}, ref) {
@@ -364,17 +374,6 @@ const styles = scaledStyles({
   header: {flexDirection: 'row', alignItems: 'center'},
   heading: {flex: 1, color: '#fff', fontWeight: '700'},
   chips: {flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap'},
-  chip: {
-    gap: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  chipSelected: {backgroundColor: 'rgba(124,106,247,0.25)', borderColor: colors.primary},
-  chipFocused: {borderColor: colors.primary, backgroundColor: 'rgba(255,255,255,0.14)'},
-  chipText: {color: colors.textHigh, fontWeight: '600'},
   center: {flex: 1, alignItems: 'center', justifyContent: 'center', padding: 64},
   message: {color: colors.textMid, fontSize: 24, textAlign: 'center', maxWidth: 1100},
   actions: {flexDirection: 'row', gap: 24, marginTop: 40},
