@@ -595,6 +595,7 @@ export function PluginHome({
             // itself every minute: browsing it, focus jumped back to the
             // first card whenever an event dropped off the front.
             key={row?.def?.type === 'live' ? row.id : `${row?.id}:${firstCardKey}`}
+            trapVertical
             cards={cards}
             variant={row?.variant ?? 'poster'}
             L={homeRowLayout(L, row?.variant ?? 'poster')}

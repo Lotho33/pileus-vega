@@ -74,6 +74,13 @@ interface Props {
   loadMore?: {loading: boolean; failed: boolean; onLoad: () => void};
   /** A Top 10: each card beside its number (card.rank); fewer fit. */
   ranked?: boolean;
+  /**
+   * ↑/↓ are the host's alone (the home switches rows in JS): the native
+   * engine never moves focus up or down out of a card. Without it, holding ↑
+   * let the engine land on some card of the row being swapped in, faster
+   * than the redirect to its first card, and the row scrolled right.
+   */
+  trapVertical?: boolean;
 }
 
 // The numbers beside Top 10 cards: rendered once from pileus-player's
@@ -412,7 +419,12 @@ export function CarouselRow(p: Props) {
             />
           );
           return (
-            <TVFocusGuideView style={[styles.cell, {width: stride}]} trapFocusLeft={index > 0} trapFocusRight>
+            <TVFocusGuideView
+              style={[styles.cell, {width: stride}]}
+              trapFocusLeft={index > 0}
+              trapFocusRight
+              trapFocusUp={p.trapVertical}
+              trapFocusDown={p.trapVertical}>
               {p.ranked ? (
                 <RankedSlot rank={item.rank ?? index + 1} w={w} h={h}>
                   {card}
