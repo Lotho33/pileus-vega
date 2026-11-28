@@ -6,7 +6,7 @@
 // dp here, so no px() / scaledStyles.
 
 import React, {useEffect, useRef, useState} from 'react';
-import {ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, View} from 'react-native';
+import {Image, Pressable, ScrollView, StyleSheet, View} from 'react-native';
 import {Text} from '../components/Text';
 import {TVFocusGuideView, useKeplerBackHandler, useTVEventHandler} from '@amazon-devices/react-native-kepler';
 import {Icon, IconName} from '../components/Icon';
@@ -15,6 +15,7 @@ import {focusSoon} from '../core/focus';
 import {posterSrc} from '../core/images';
 import {colors} from '../theme';
 import {Info, infoOf} from './format';
+import {Spinner} from '../components/Spinner';
 
 const BG = '#0E0E1A';
 const LILAC = '#B8A9FF';
@@ -165,7 +166,7 @@ export function MediaInfoPopup({
         trapFocusDown>
         {loading ? (
           <View style={styles.loading}>
-            <ActivityIndicator color={colors.primary} />
+            <Spinner />
           </View>
         ) : error ? (
           <View style={styles.loading}>

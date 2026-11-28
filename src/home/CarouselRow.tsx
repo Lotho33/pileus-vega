@@ -19,7 +19,7 @@
 // the old one — both landed mid-row, and the row then slid there.
 
 import React, {forwardRef, useCallback, useEffect, useRef, useState} from 'react';
-import {ActivityIndicator, FlatList, Image, Pressable, View} from 'react-native';
+import {FlatList, Image, Pressable, View} from 'react-native';
 import {Text} from '../components/Text';
 import {TVFocusGuideView, useTVEventHandler} from '@amazon-devices/react-native-kepler';
 import {Icon} from '../components/Icon';
@@ -31,6 +31,7 @@ import {LandscapeCard, LiveCard, PosterCard} from './Cards';
 import type {HomeLayout} from './layout';
 import type {CardModel, CardVariant} from './model';
 import {colors, px, scaledStyles} from '../theme';
+import {Spinner} from '../components/Spinner';
 
 /** Ask the row to focus card `index`; a new `token` repeats the request. */
 export interface FocusRequest {
@@ -154,7 +155,7 @@ const LoadMoreCard = forwardRef<
           </Text>
         </>
       ) : (
-        <ActivityIndicator color="rgba(255,255,255,0.4)" />
+        <Spinner />
       )}
     </Pressable>
   );

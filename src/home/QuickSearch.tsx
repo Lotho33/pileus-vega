@@ -6,7 +6,7 @@
 // the panel: only Back and the X close it.
 
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {ActivityIndicator, FlatList, Pressable, View} from 'react-native';
+import {FlatList, Pressable, View} from 'react-native';
 import {Text} from '../components/Text';
 import {TVFocusGuideView} from '@amazon-devices/react-native-kepler';
 import {Icon, IconName} from '../components/Icon';
@@ -18,6 +18,7 @@ import {colors, scaledStyles} from '../theme';
 import {LandscapeCard, PosterCard} from './Cards';
 import type {HomeLayout} from './layout';
 import {CardModel, CardVariant, catalogCard, searchVariant} from './model';
+import {Spinner} from '../components/Spinner';
 
 const MIN_QUERY = 2;
 const DEBOUNCE_MS = 350;
@@ -344,7 +345,7 @@ export function QuickSearch({
           </View>
           <View style={{marginTop: L.H * (19.4 / 1080)}}>
             {pending ? (
-              <ActivityIndicator color={colors.primary} style={{marginVertical: L.H * 0.02}} />
+              <Spinner style={{marginVertical: L.H * 0.02}} />
             ) : results && results.length ? (
               <>
                 <Results cards={results} variant={variant} width={innerW} maxCardH={L.H * 0.3} onOpen={openItem} />

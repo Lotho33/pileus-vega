@@ -1,5 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {ActivityIndicator, View} from 'react-native';
+import {View} from 'react-native';
 import {Text} from '../components/Text';
 import {FocusButton} from '../components/FocusButton';
 import {OnScreenKeyboard} from '../components/OnScreenKeyboard';
@@ -11,6 +11,7 @@ import {focusSoon} from '../core/focus';
 import {parseServerAddressInput} from '../core/serverAddress';
 import {errorText, useAuth} from '../state/auth';
 import {colors, px, scaledStyles} from '../theme';
+import {Spinner} from '../components/Spinner';
 
 export function ConnectScreen() {
   const {connect, session} = useAuth();
@@ -84,7 +85,7 @@ export function ConnectScreen() {
         </View>
       ) : scanning ? (
         <View style={styles.scan}>
-          <ActivityIndicator color={colors.primary} />
+          <Spinner />
           <Text style={styles.scanText}>Ricerca server Mycelium…</Text>
         </View>
       ) : (

@@ -7,7 +7,7 @@
 // trapped; Back closes.
 
 import React, {useEffect, useRef, useState} from 'react';
-import {ActivityIndicator, ScrollView, View} from 'react-native';
+import {ScrollView, View} from 'react-native';
 import {Text} from '../components/Text';
 import {TVFocusGuideView, useKeplerBackHandler} from '@amazon-devices/react-native-kepler';
 import {FocusButton} from '../components/FocusButton';
@@ -28,6 +28,7 @@ import {
   retentionLabel,
   totalEstimatedBytes,
 } from './format';
+import {Spinner} from '../components/Spinner';
 
 export function DownloadDialog({
   pluginId,
@@ -227,7 +228,7 @@ export function DownloadDialog({
               onStep={d => setSrcIdx(i => (i + d + sources.length) % sources.length)}
             />
           ) : null}
-          {!opts && !error ? <ActivityIndicator color={colors.primary} style={styles.spinner} /> : null}
+          {!opts && !error ? <Spinner style={styles.spinner} /> : null}
           {error ? <Note text={error} /> : null}
           {opts && !opts.available ? (
             <Note text={opts.unavailableReason || 'Questo contenuto non si può scaricare.'} />

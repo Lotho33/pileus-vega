@@ -8,7 +8,7 @@
 // on a 1080p Fire TV (u = H/540).
 
 import React, {useEffect, useRef, useState} from 'react';
-import {ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, useWindowDimensions, View} from 'react-native';
+import {Image, Pressable, ScrollView, StyleSheet, useWindowDimensions, View} from 'react-native';
 import {Text} from '../components/Text';
 import {TVFocusGuideView, useKeplerBackHandler} from '@amazon-devices/react-native-kepler';
 import {Bands, Gradient} from '../components/Gradient';
@@ -19,6 +19,7 @@ import type {CatalogItem, StreamSource} from '../gen/media';
 import {colors, scaledStyles} from '../theme';
 import {isLiveNow, livePlotWithoutStatus, liveStartAt, liveStartTimeLabel, liveWhenLabel, sportAccentColor} from './live';
 import {useSources} from './Sources';
+import {Spinner} from '../components/Spinner';
 
 function SourceRow({
   src,
@@ -194,7 +195,7 @@ export function LivePopup({
           <View style={{marginTop: 16 * u}}>
             {sources.loading ? (
               <View style={[styles.loading, {gap: 10 * u}]}>
-                <ActivityIndicator color={colors.textLow} />
+                <Spinner />
                 <Text style={[styles.note, {fontSize: 13 * k}]}>Caricamento sorgenti...</Text>
               </View>
             ) : sources.error ? (

@@ -4,7 +4,7 @@
 // one is mounted.
 
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {ActivityIndicator, StyleSheet, View} from 'react-native';
+import {StyleSheet, View} from 'react-native';
 import {Text} from '../components/Text';
 import {useKeplerBackHandler, useTVEventHandler} from '@amazon-devices/react-native-kepler';
 import {DetailsScreen} from '../details/DetailsScreen';
@@ -31,6 +31,7 @@ import {errorText, useAuth} from '../state/auth';
 import {SearchScreen} from '../search/SearchScreen';
 import {SettingsScreen} from './SettingsScreen';
 import {colors, font, scaledStyles, space} from '../theme';
+import {Spinner} from '../components/Spinner';
 
 // Back at the root only exits on a second press within this window, like
 // home_view.dart's _handleRootBack.
@@ -473,7 +474,7 @@ export function HomeScreen() {
   if (plugins === null) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <Spinner size="large" />
       </View>
     );
   }

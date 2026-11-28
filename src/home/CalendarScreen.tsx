@@ -5,7 +5,7 @@
 // series), a "Previsto" one too.
 
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, View} from 'react-native';
+import {Image, Pressable, ScrollView, StyleSheet, View} from 'react-native';
 import {Text} from '../components/Text';
 import {TVFocusGuideView, useKeplerBackHandler} from '@amazon-devices/react-native-kepler';
 import {FocusButton} from '../components/FocusButton';
@@ -39,6 +39,7 @@ import {errorText} from '../state/auth';
 import {colors, scaledStyles} from '../theme';
 import type {HomeLayout} from './layout';
 import {CardModel, catalogCard} from './model';
+import {Spinner} from '../components/Spinner';
 
 const H_PAD = 48 / 1920;
 const V_PAD = 28 / 1080;
@@ -230,7 +231,7 @@ export function CalendarScreen({
       </View>
       {loading && !data ? (
         <View style={styles.center}>
-          <ActivityIndicator color={colors.primary} />
+          <Spinner />
         </View>
       ) : error && !data ? (
         <View style={styles.center}>

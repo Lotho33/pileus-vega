@@ -5,7 +5,7 @@
 // ↑/↓ scroll the text; Back closes it.
 
 import React, {useEffect, useRef, useState} from 'react';
-import {ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, View} from 'react-native';
+import {Image, Pressable, ScrollView, StyleSheet, View} from 'react-native';
 import {Text} from '../components/Text';
 import {TVFocusGuideView, useKeplerBackHandler, useTVEventHandler} from '@amazon-devices/react-native-kepler';
 import {Icon, IconName} from '../components/Icon';
@@ -14,6 +14,7 @@ import {focusSoon} from '../core/focus';
 import {posterSrc} from '../core/images';
 import {colors, px, scaledStyles} from '../theme';
 import {Info, infoOf} from './format';
+import {Spinner} from '../components/Spinner';
 
 const SCROLL_STEP = 0.35; // of the visible text height
 
@@ -170,7 +171,7 @@ export function InfoPopup({
               </View>
             ) : null}
             {!info && !failed ? (
-              <ActivityIndicator color={colors.textLow} style={{marginTop: 24 * u}} />
+              <Spinner style={{marginTop: 24 * u}} />
             ) : (
               <ScrollView
                 ref={scroll}

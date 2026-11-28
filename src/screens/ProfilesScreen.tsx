@@ -5,7 +5,7 @@
 // either step drops the whole creation.
 
 import React, {forwardRef, useCallback, useEffect, useRef, useState} from 'react';
-import {ActivityIndicator, Dimensions, Image, Pressable, StyleSheet, View, findNodeHandle} from 'react-native';
+import {Dimensions, Image, Pressable, StyleSheet, View, findNodeHandle} from 'react-native';
 import {Text} from '../components/Text';
 import {Avatar} from '../components/Avatar';
 import {AvatarPicker} from '../components/AvatarPicker';
@@ -21,6 +21,7 @@ import {TextDialog} from '../settings/TextDialog';
 import type {ProfileResponse} from '../gen/auth';
 import {errorText, useAuth} from '../state/auth';
 import {colors, font, px, scaledStyles, space} from '../theme';
+import {Spinner} from '../components/Spinner';
 
 // profile_selection_screen.dart, in units of its 540-tall TV canvas (k):
 // a 110-unit square, radius 16 (13 for the picture inside a 3-unit border in
@@ -257,7 +258,7 @@ export function ProfilesScreen() {
         <Text style={[styles.title, {fontSize: H * 0.03}]}>Chi sta guardando?</Text>
         <View style={{height: (H * 64.8) / 1080}} />
         {profiles === null ? (
-          <ActivityIndicator size="large" color={colors.primary} />
+          <Spinner size="large" />
         ) : profiles.length === 0 && error ? (
           // The list couldn't be read. With none on the server (a new
           // install, or the last one deleted) the row below still offers

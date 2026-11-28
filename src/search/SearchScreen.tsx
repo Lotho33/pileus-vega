@@ -5,7 +5,7 @@
 // Opened from quick search's filters button with the query typed so far.
 
 import React, {forwardRef, useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {ActivityIndicator, Pressable, StyleSheet, useWindowDimensions, View} from 'react-native';
+import {Pressable, StyleSheet, useWindowDimensions, View} from 'react-native';
 import {Text} from '../components/Text';
 import {useKeplerBackHandler} from '@amazon-devices/react-native-kepler';
 import {FocusButton} from '../components/FocusButton';
@@ -23,6 +23,7 @@ import {errorText} from '../state/auth';
 import {colors, px, scaledStyles} from '../theme';
 import {FilterPanel} from './FilterPanel';
 import {ActiveFilters, optionLabel, setFilter} from './filters';
+import {Spinner} from '../components/Spinner';
 
 const MIN_QUERY = 2;
 const DEBOUNCE_MS = 350;
@@ -66,7 +67,7 @@ const SquareButton = forwardRef<
       onPress={onPress}
       style={[styles.square, {width: size, height: size}, focused && styles.squareFocused, dim && styles.dim]}>
       {busy ? (
-        <ActivityIndicator color={colors.textMid} />
+        <Spinner />
       ) : (
         <Icon name={icon} size={size * 0.46} color={focused ? colors.textHigh : 'rgba(242,242,240,0.7)'} />
       )}
@@ -409,7 +410,7 @@ export function SearchScreen({
 
       <View style={styles.results}>
         {loading && !cards.length ? (
-          <ActivityIndicator size="large" color="rgba(255,255,255,0.54)" style={styles.center} />
+          <Spinner size="large" style={styles.center} />
         ) : error ? (
           <View style={styles.center}>
             <Text style={styles.promptTitle}>Ricerca non riuscita.</Text>
@@ -425,9 +426,7 @@ export function SearchScreen({
           </View>
         ) : cards.length ? (
           <View style={{marginTop: H * 0.01}}>
-            {loading ? (
-              <ActivityIndicator color="rgba(255,255,255,0.54)" style={[styles.refreshing, {right: hPad}]} />
-            ) : null}
+            {loading ? <Spinner style={[styles.refreshing, {right: hPad}]} /> : null}
             <CarouselRow
               key={`${results?.variant}:${cards[0].key}`}
               cards={cards}

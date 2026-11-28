@@ -7,7 +7,7 @@
 // page on top lands where you were.
 
 import React, {forwardRef, useCallback, useEffect, useRef, useState} from 'react';
-import {ActivityIndicator, FlatList, Pressable, View} from 'react-native';
+import {FlatList, Pressable, View} from 'react-native';
 import {Text} from '../components/Text';
 import {FocusButton} from '../components/FocusButton';
 import {Icon} from '../components/Icon';
@@ -24,6 +24,7 @@ import {errorText} from '../state/auth';
 import {colors, scaledStyles} from '../theme';
 import {BackButton} from './common';
 import {isAnimeItem, isEpisodeList} from './format';
+import {Spinner} from '../components/Spinner';
 
 const H_PAD = 48 / 1920;
 const V_PAD = 28 / 1080;
@@ -224,7 +225,7 @@ export function BrowseScreen({
       </View>
     );
   } else if (!items) {
-    body = <ActivityIndicator size="large" color={colors.textHigh} style={styles.spinner} />;
+    body = <Spinner size="large" style={styles.spinner} />;
   } else if (!items.length) {
     body = (
       <View style={styles.center}>

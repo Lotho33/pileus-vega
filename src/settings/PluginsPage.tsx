@@ -4,7 +4,7 @@
 // follows them; the plugin's own fields are its server-side settings.
 
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {ActivityIndicator, View} from 'react-native';
+import {View} from 'react-native';
 import {mycelium} from '../core/api';
 import {parsePluginPrefs, PluginPrefs, writePluginPrefs} from '../core/prefs';
 import type {PluginInfo, PluginSettingField} from '../gen/media';
@@ -13,6 +13,7 @@ import {colors, px} from '../theme';
 import {ReorderDialog} from './ReorderDialog';
 import {TextDialog} from './TextDialog';
 import {Note, Page, Row, SectionHeader} from './ui';
+import {Spinner} from '../components/Spinner';
 
 /** Saves `next` into the active profile's blob, keeping its other blocks. */
 function usePluginPrefs() {
@@ -79,7 +80,7 @@ export function PluginsPage({onOpen}: {onOpen: (p: PluginInfo) => void}) {
   return (
     <>
     <Page title="Impostazioni plugin" first={first} focusToken={(list ? 1 : 0) + focusToken}>
-      {!list && !error ? <ActivityIndicator color={colors.primary} style={{marginTop: px(40)}} /> : null}
+      {!list && !error ? <Spinner style={{marginTop: px(40)}} /> : null}
       {error ? <Note text={`Impossibile raggiungere il server: ${error}`} /> : null}
       {list && list.length > 1 ? (
         <Row
@@ -232,7 +233,7 @@ export function PluginPage({plugin}: {plugin: PluginInfo}) {
           />
         ))}
         <SectionHeader title="Configurazione" />
-        {fields === null ? <ActivityIndicator color={colors.primary} /> : null}
+        {fields === null ? <Spinner /> : null}
         {fields && !fields.length ? <Note text="Questo plugin non ha impostazioni per il profilo." /> : null}
         {fields?.map(f => (
           <Row

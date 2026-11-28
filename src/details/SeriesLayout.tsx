@@ -8,7 +8,7 @@ import {languageBadges} from '../core/language';
 import {episodeKindLabel} from '../core/episodeKind';
 import {MetaWithKind} from '../components/MetaWithKind';
 import React, {forwardRef, memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {ActivityIndicator, Pressable, ScrollView, StyleSheet, View} from 'react-native';
+import {Pressable, ScrollView, StyleSheet, View} from 'react-native';
 import {Text} from '../components/Text';
 import {TVFocusGuideView, useKeplerBackHandler, useTVEventHandler} from '@amazon-devices/react-native-kepler';
 import {Icon} from '../components/Icon';
@@ -47,6 +47,7 @@ import {MyListChip, TrailerChip} from './DetailActions';
 import {EpisodePopup} from './EpisodePopup';
 import {episodeWindow, fmtAirDate, fmtStatus, relatedLists, seasonLabel} from './format';
 import {RelatedRow} from './RelatedRow';
+import {Spinner} from '../components/Spinner';
 
 const PAGE = 5;
 /** A ↓/→ this soon after an episode got focus is the press that moved it. */
@@ -491,7 +492,7 @@ export function SeriesLayout({
                 {start + 1}–{winEnd} / {episodes.length}
               </Text>
             ) : null}
-            {loading ? <ActivityIndicator size="small" color={colors.textLow} /> : null}
+            {loading ? <Spinner size="small" /> : null}
           </View>
           {/* ↓/→ out of the episodes are handled above (enterRelated). */}
           <TVFocusGuideView

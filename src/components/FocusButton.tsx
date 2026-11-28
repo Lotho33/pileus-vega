@@ -1,7 +1,8 @@
 import React, {forwardRef, useState} from 'react';
-import {ActivityIndicator, Pressable, StyleProp, View, ViewStyle} from 'react-native';
+import {Pressable, StyleProp, View, ViewStyle} from 'react-native';
 import {Text} from './Text';
 import {colors, font, scaledStyles, space} from '../theme';
+import {Spinner} from './Spinner';
 
 interface Props {
   label: string;
@@ -38,7 +39,7 @@ export const FocusButton = forwardRef<View, Props>(function FocusButton(
         style,
       ]}>
       {busy ? (
-        <ActivityIndicator color={colors.textHigh} />
+        <Spinner color={colors.textHigh} />
       ) : (
         <Text style={[styles.label, focused && styles.labelFocused]}>
           {label}

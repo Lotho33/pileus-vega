@@ -23,7 +23,7 @@
 // position).
 
 import React, {forwardRef, memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, useWindowDimensions, View} from 'react-native';
+import {Image, Pressable, ScrollView, StyleSheet, useWindowDimensions, View} from 'react-native';
 import {Text} from '../components/Text';
 import {MetaWithKind} from '../components/MetaWithKind';
 import {TVFocusGuideView, useKeplerBackHandler, useTVEventHandler} from '@amazon-devices/react-native-kepler';
@@ -72,6 +72,7 @@ import {advanceContinueWatching, isEpisodeOfSeries} from './cwAdvance';
 import {StillWatchingGuard, stillWatchingMessage} from './stillWatching';
 import {InfoPanel} from './InfoPanel';
 import {loadPlayerInfo, PlayerInfo, playerInfoBase} from './playerInfo';
+import {Spinner} from '../components/Spinner';
 
 const HIDE_AFTER_MS = 5000;
 const HEARTBEAT_MS = 10000;
@@ -1303,7 +1304,7 @@ export function PlayerScreen({
       ) : null}
       {phase.kind === 'resolving' || phase.kind === 'opening' || (buffering && phase.kind === 'playing') ? (
         <View style={styles.center} pointerEvents="none">
-          <ActivityIndicator size="large" color={colors.textHigh} />
+          <Spinner size="large" color={colors.textHigh} />
           {phase.kind === 'resolving' && phase.message ? <Text style={styles.status}>{phase.message}</Text> : null}
         </View>
       ) : null}
@@ -1373,7 +1374,7 @@ export function PlayerScreen({
                 <ControlButton label="+10" onPress={() => seekBy(SEEK_STEP)} onFocus={bumpOverlay} />
               ) : null}
               {hasNext ? <ControlButton icon="skipNext" onPress={() => goToEpisode(1)} onFocus={bumpOverlay} /> : null}
-              {switching ? <ActivityIndicator color={colors.textHigh} /> : null}
+              {switching ? <Spinner color={colors.textHigh} /> : null}
               <View style={styles.spacer} />
               {req.isLive ? (
                 <ControlButton

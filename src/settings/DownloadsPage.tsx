@@ -4,7 +4,7 @@
 // is one row that opens on its downloaded episodes; Back closes it first.
 
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {ActivityIndicator, View} from 'react-native';
+import {View} from 'react-native';
 import {Text} from '../components/Text';
 import {TVFocusGuideView, useKeplerBackHandler} from '@amazon-devices/react-native-kepler';
 import {FocusButton} from '../components/FocusButton';
@@ -17,6 +17,7 @@ import {emptyRequest, PlayRequest} from '../player/session';
 import {errorText} from '../state/auth';
 import {colors, font, scaledStyles, space} from '../theme';
 import {Note, Page, Row, SectionHeader} from './ui';
+import {Spinner} from '../components/Spinner';
 
 const REFRESH_MS = 5000;
 
@@ -153,7 +154,7 @@ export function DownloadsPage({onPlay, focusToken}: {onPlay: (req: PlayRequest) 
   return (
     <>
       <Page title={openSeries?.title ?? 'Download'} first={first} focusToken={focusToken + refocus + (data ? 1 : 0)}>
-        {!data && !error ? <ActivityIndicator color={colors.primary} style={styles.spinner} /> : null}
+        {!data && !error ? <Spinner style={styles.spinner} /> : null}
         {error ? <Note text={`Impossibile caricare i download: ${error}`} /> : null}
         {data && !list.length ? (
           <Note text="Nessun download. I contenuti scaricati sul server compariranno qui." />

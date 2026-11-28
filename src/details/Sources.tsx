@@ -3,7 +3,7 @@
 // source otherwise (watch_button.dart / episode_popup.dart).
 
 import React, {forwardRef, useCallback, useEffect, useRef, useState} from 'react';
-import {ActivityIndicator, Pressable, View} from 'react-native';
+import {Pressable, View} from 'react-native';
 import {Text} from '../components/Text';
 import {Icon, IconName} from '../components/Icon';
 import {mycelium} from '../core/api';
@@ -14,6 +14,7 @@ import type {StreamSource} from '../gen/media';
 import {preferredFirst, parsePreferredLanguage} from '../core/language';
 import {errorText, useAuth} from '../state/auth';
 import {colors, px, scaledStyles} from '../theme';
+import {Spinner} from '../components/Spinner';
 
 export interface SourcesState {
   pluginId: string;
@@ -195,7 +196,7 @@ export function SourceButtons({
   }, [focus, ready, state.error]);
 
   if (state.loading) {
-    return <ActivityIndicator color={colors.textLow} style={{alignSelf: align, marginVertical: 12 * s}} />;
+    return <Spinner style={{alignSelf: align, marginVertical: 12 * s}} />;
   }
   if (resumeLabel && onResume) {
     return (
