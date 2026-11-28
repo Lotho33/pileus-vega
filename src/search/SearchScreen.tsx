@@ -101,15 +101,23 @@ function ActiveChip({label, onFocus, onRemove}: {label: string; onFocus: () => v
 function ItemInfo({card, H, hPad}: {card: CardModel; H: number; hPad: number}) {
   const h = card.hero;
   const s = H / 1080;
-  const meta = [h.year > 0 ? String(h.year) : '', h.rating > 0 ? `★ ${h.rating.toFixed(1)}` : '']
-    .filter(Boolean)
-    .join('  ·  ');
+  const year = h.year > 0 ? String(h.year) : '';
+  const rating = h.rating > 0 ? h.rating.toFixed(1) : '';
+  const meta = year || rating;
   return (
     <View style={{paddingHorizontal: hPad, marginTop: 8 * s}}>
       <Text style={[styles.infoTitle, {fontSize: 34 * s}]} numberOfLines={1}>
         {h.title}
       </Text>
-      {meta ? <Text style={[styles.infoMeta, {fontSize: 20 * s}]}>{meta}</Text> : null}
+      {meta ? (
+        <Text style={[styles.infoMeta, {fontSize: 20 * s}]}>
+          {year}
+          {year && rating ? '  ·  ' : ''}
+          {/* The star yellow, the number like the rest. */}
+          {rating ? <Text style={styles.star}>★ </Text> : null}
+          {rating}
+        </Text>
+      ) : null}
       {h.genres.length ? (
         <View style={styles.genres}>
           {h.genres.slice(0, 4).map(g => (
@@ -539,6 +547,7 @@ const styles = scaledStyles({
   refreshing: {position: 'absolute', top: 0},
   infoTitle: {color: colors.textHigh, fontWeight: '800'},
   infoMeta: {color: colors.textMid, marginTop: 6},
+  star: {color: '#FFD700'},
   genres: {flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10},
   genre: {
     paddingHorizontal: 10,

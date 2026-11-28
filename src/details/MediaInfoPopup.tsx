@@ -24,11 +24,12 @@ const SCROLL_STEP = 140;
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
+// `color` is the icon's only: a rating's star is yellow, its number like the rest.
 function MetaChip({icon, label, color = META, fs}: {icon: IconName; label: string; color?: string; fs: number}) {
   return (
     <View style={styles.metaChip}>
       <Icon name={icon} size={fs * 1.08} color={color} />
-      <Text style={{color, fontSize: fs, fontWeight: '500', marginLeft: fs * 0.31}}>{label}</Text>
+      <Text style={{color: META, fontSize: fs, fontWeight: '500', marginLeft: fs * 0.31}}>{label}</Text>
     </View>
   );
 }
@@ -137,7 +138,7 @@ export function MediaInfoPopup({
     meta.push({icon: 'calendar', label: String(shownYear)});
   }
   if (shownRating > 0) {
-    meta.push({icon: 'star', label: shownRating.toFixed(1), color: '#FFB300'});
+    meta.push({icon: 'star', label: shownRating.toFixed(1), color: '#FFD700'});
   }
   if (info?.contentRating) {
     meta.push({icon: 'shield', label: info.contentRating});
